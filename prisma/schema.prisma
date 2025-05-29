@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
     provider = "prisma-client-js"
 }
@@ -10,11 +7,42 @@ datasource db {
     url      = env("DATABASE_URL")
 }
 
-model Post {
-    id        Int      @id @default(autoincrement())
-    name      String
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+model Category {
+    id          String   @id @default(cuid())
+    name        String
+    description String?
+    color       String   @default("#3B82F6")
+    icon        String   @default("💰")
+    budget      Float?
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
 
-    @@index([name])
+    expenses Expense[]
+
+    @@map("categories")
+}
+
+model Expense {
+    id          String   @id @default(cuid())
+    amount      Float
+    description String
+    date        DateTime @default(now())
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+
+    categoryId String
+    category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+    @@map("expenses")
+}
+
+model AppSettings {
+    id            String   @id @default("global") // Solo un registro global
+    cycleStartDay Int      @default(1) // Día del mes donde inicia el ciclo (1-28)
+    monthlyBudget Float? // Presupuesto mensual total
+    currency      String   @default("USD")
+    createdAt     DateTime @default(now())
+    updatedAt     DateTime @updatedAt
+
+    @@map("app_settings")
 }
