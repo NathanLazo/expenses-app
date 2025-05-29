@@ -16,7 +16,15 @@ import {
   ChartTooltipContent,
 } from "~/components/ui/chart";
 import { PieChart, Pie, Cell } from "recharts";
-import { CalendarDays, TrendingUp, Wallet, Plus } from "lucide-react";
+import {
+  CalendarDays,
+  TrendingUp,
+  Wallet,
+  Plus,
+  BookDashed,
+  Columns3,
+  ChartBar,
+} from "lucide-react";
 import { api } from "~/trpc/react";
 import Link from "next/link";
 
@@ -34,7 +42,7 @@ export default function Dashboard() {
   const [selectedYear] = useState(new Date().getFullYear());
 
   const { data: categories, isLoading: categoriesLoading } =
-    api.userCategories.getAll.useQuery();
+    api.useCategories.getAll.useQuery();
   const { data: monthlyStats, isLoading: statsLoading } =
     api.useExpenses.getMonthlyStats.useQuery({
       month: selectedMonth,
@@ -90,16 +98,28 @@ export default function Dashboard() {
   return (
     <div className="flex-1 space-y-4 p-4 pt-6 md:p-8">
       <div className="flex items-center justify-between space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+        <h2 className="text-3xl font-bold tracking-tight">Inicio</h2>
         <div className="flex items-center space-x-2">
           <Badge variant="outline" className="text-sm">
             <CalendarDays className="mr-1 h-3 w-3" />
             {monthNames[selectedMonth]} {selectedYear}
           </Badge>
           <Button asChild>
-            <Link href="/expenses/new">
-              <Plus className="mr-2 h-4 w-4" />
-              Agregar Gasto
+            <Link
+              href="/expenses"
+              className="flex items-center gap-2 text-sm font-medium"
+            >
+              <Plus className="h-4 w-4" />
+              <p className="hidden md:block">Agregar Gasto</p>
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link
+              href="/categories"
+              className="flex items-center gap-2 text-sm font-medium"
+            >
+              <ChartBar className="h-4 w-4" />
+              <p className="hidden md:block">Categorías</p>
             </Link>
           </Button>
         </div>

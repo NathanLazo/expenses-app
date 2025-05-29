@@ -47,7 +47,7 @@ export default function NewExpensePage() {
   const router = useRouter();
 
   const { data: categories, isLoading: categoriesLoading } =
-    api.userCategories.getAll.useQuery();
+    api.useCategories.getAll.useQuery();
   const createExpense = api.useExpenses.create.useMutation({
     onSuccess: () => {
       toast.success("Gasto agregado", {

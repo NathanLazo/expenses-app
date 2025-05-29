@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 
-export const userCategories = createTRPCRouter({
+export const useCategories = createTRPCRouter({
   getAll: publicProcedure.query(async ({ ctx }) => {
     try {
       const categories = await ctx.db.category.findMany({

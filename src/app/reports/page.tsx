@@ -47,7 +47,7 @@ export default function ReportsPage() {
   const [selectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
 
-  const { data: categories } = api.userCategories.getAll.useQuery();
+  const { data: categories } = api.useCategories.getAll.useQuery();
   const { data: monthlyStats } = api.useExpenses.getMonthlyStats.useQuery({
     month: selectedMonth,
     year: selectedYear,
