@@ -94,15 +94,6 @@ export default function NewExpensePage() {
 
   return (
     <div className="flex-1 space-y-4 p-4 pt-6 md:p-8">
-      <div className="flex items-center space-x-2">
-        <Button variant="ghost" size="sm" asChild>
-          <Link href="/">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Volver al Dashboard
-          </Link>
-        </Button>
-      </div>
-
       <div className="mx-auto max-w-2xl">
         <Card>
           <CardHeader>
