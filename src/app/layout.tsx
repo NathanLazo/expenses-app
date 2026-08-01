@@ -7,11 +7,34 @@ import { TRPCReactProvider } from "~/trpc/react";
 import { BackButton } from "~/components/BackButton";
 import Link from "next/link";
 import { ChartBar, List, Plus, Settings } from "lucide-react";
+import { siteConfig, siteUrl } from "~/lib/seo";
 
 export const metadata: Metadata = {
-  title: "Gastos Daniela y Nathan",
-  description: "Gastos Daniela y Nathan",
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: siteConfig.name,
+    template: `${siteConfig.name} - %s`,
+  },
+  description: siteConfig.description,
+  applicationName: siteConfig.name,
   icons: [{ rel: "icon", url: "/favicon.ico" }],
+  openGraph: {
+    type: "website",
+    siteName: siteConfig.name,
+    locale: siteConfig.locale,
+    title: siteConfig.name,
+    description: siteConfig.description,
+    url: "/",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: siteConfig.name,
+    description: siteConfig.description,
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 const geist = Geist({
@@ -29,7 +52,9 @@ export default function RootLayout({
           <div className="flex min-h-screen flex-col">
             <header className="border-border flex items-center gap-4 border-b p-6">
               <BackButton />
-              <h1 className="ml-4 text-xl font-semibold">Gastos</h1>
+              <Link href="/" className="ml-4 text-xl font-semibold">
+                {siteConfig.name}
+              </Link>
               <Link href="/reports" className="flex items-center gap-2">
                 <ChartBar className="h-4 w-4" />
                 <p className="hidden md:block">Reportes</p>
