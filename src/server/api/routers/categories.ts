@@ -1,55 +1,56 @@
 import { z } from "zod";
 
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
+import { periodInput, resolvePeriod } from "~/server/api/period";
 
 export const useCategories = createTRPCRouter({
-  getAll: publicProcedure.query(async ({ ctx }) => {
-    try {
-      const categories = await ctx.db.category.findMany({
-        include: {
-          expenses: {
-            where: {
-              date: {
-                gte: new Date(
-                  new Date().getFullYear(),
-                  new Date().getMonth(),
-                  1,
-                ),
+  getAll: publicProcedure
+    .input(periodInput.optional())
+    .query(async ({ input, ctx }) => {
+      // `expenses` trae sólo los del periodo pedido (por defecto el ciclo
+      // vigente), que es contra lo que se compara el presupuesto.
+      const { from, to } = await resolvePeriod(ctx.db, input ?? {});
+
+      try {
+        const categories = await ctx.db.category.findMany({
+          include: {
+            expenses: {
+              where: {
+                date: { gte: from, lt: to },
               },
             },
+            _count: {
+              select: { expenses: true },
+            },
           },
-          _count: {
-            select: { expenses: true },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-      });
+          orderBy: { createdAt: "desc" },
+        });
 
-      if (!categories) {
+        if (!categories) {
+          return {
+            error: categories,
+            result: null,
+            status: 200,
+            message: "Categories not found",
+          };
+        }
+
         return {
-          error: categories,
-          result: null,
+          error: null,
+          result: categories,
           status: 200,
-          message: "Categories not found",
+          message: "Categories fetched successfully",
+        };
+      } catch (error) {
+        console.error(error);
+        return {
+          error: error,
+          result: null,
+          status: 500,
+          message: "Failed to fetch categories",
         };
       }
-
-      return {
-        error: null,
-        result: categories,
-        status: 200,
-        message: "Categories fetched successfully",
-      };
-    } catch (error) {
-      console.error(error);
-      return {
-        error: error,
-        result: null,
-        status: 500,
-        message: "Failed to fetch categories",
-      };
-    }
-  }),
+    }),
 
   create: publicProcedure
     .input(

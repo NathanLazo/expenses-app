@@ -117,7 +117,7 @@ export default function CategoriesPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-muted-foreground text-sm">
           Cada gasto pertenece a una categoría. Asigna presupuestos para seguir
-          tu avance del mes.
+          tu avance del ciclo.
         </p>
         <Button
           onClick={() => {
@@ -146,7 +146,7 @@ export default function CategoriesPage() {
           isLoading={isLoading}
         />
         <StatCard
-          title="Gastado este mes"
+          title="Gastado en el ciclo"
           value={formatAmount(totalSpent)}
           hint={
             totalBudget
@@ -244,7 +244,7 @@ export default function CategoriesPage() {
 
                   <div className="flex items-baseline justify-between">
                     <span className="text-muted-foreground text-sm">
-                      Gastado este mes
+                      Gastado en el ciclo
                     </span>
                     <span className="font-semibold tabular-nums">
                       {formatAmount(spent)}

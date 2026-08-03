@@ -53,18 +53,19 @@ import {
   TableRow,
 } from "~/components/ui/table";
 import { useAppSettings } from "~/hooks/use-app-settings";
-import { formatPercent } from "~/lib/format";
+import { formatDayTick, formatPercent } from "~/lib/format";
 import { api } from "~/trpc/react";
 
 export default function ReportsPage() {
-  const { month, year, label, isCurrentPeriod } = usePeriod();
+  const { from, to, label, isCurrentPeriod, totalDays, daysElapsed } =
+    usePeriod();
   const { formatAmount, formatCompactAmount } = useAppSettings();
 
   const { data: categoriesResponse } = api.useCategories.getAll.useQuery();
   const { data: statsResponse, isLoading: statsLoading } =
-    api.useExpenses.getMonthlyStats.useQuery({ month, year });
+    api.useExpenses.getPeriodStats.useQuery({ from, to });
   const { data: expensesResponse, isLoading: expensesLoading } =
-    api.useExpenses.getAll.useQuery({ month, year });
+    api.useExpenses.getAll.useQuery({ from, to });
 
   const isLoading = statsLoading || expensesLoading;
   const stats = statsResponse?.result;
@@ -76,9 +77,9 @@ export default function ReportsPage() {
     (a, b) => b.total - a.total,
   );
 
-  // En un mes pasado el promedio se calcula sobre el mes completo, no sobre hoy.
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const elapsedDays = isCurrentPeriod ? new Date().getDate() : daysInMonth;
+  // En un periodo pasado el promedio se calcula sobre el ciclo completo; en el
+  // vigente, sólo sobre los días ya transcurridos.
+  const elapsedDays = isCurrentPeriod ? Math.max(daysElapsed, 1) : totalDays;
   const dailyAverage = totalSpent / Math.max(elapsedDays, 1);
 
   const totalBudget =
@@ -102,17 +103,26 @@ export default function ReportsPage() {
     fill: stat.category.color,
   }));
 
+  /*
+   * Se agrupa por fecha completa y no por número de día: un ciclo que cruza
+   * dos meses repetiría los días (15..31 y luego 1..14) y el orden numérico
+   * mezclaría ambos meses.
+   */
   const dailyData = Object.values(
-    expenses.reduce<Record<number, { day: number; amount: number }>>(
-      (acc, expense) => {
-        const day = new Date(expense.date).getDate();
-        acc[day] ??= { day, amount: 0 };
-        acc[day].amount += expense.amount;
-        return acc;
-      },
-      {},
-    ),
-  ).sort((a, b) => a.day - b.day);
+    expenses.reduce<
+      Record<string, { time: number; day: string; amount: number }>
+    >((acc, expense) => {
+      const date = new Date(expense.date);
+      const key = date.toDateString();
+      acc[key] ??= {
+        time: date.getTime(),
+        day: formatDayTick(date),
+        amount: 0,
+      };
+      acc[key].amount += expense.amount;
+      return acc;
+    }, {}),
+  ).sort((a, b) => a.time - b.time);
 
   let running = 0;
   const cumulativeData = dailyData.map((entry) => {
@@ -161,7 +171,7 @@ export default function ReportsPage() {
           hint={
             isCurrentPeriod
               ? `Sobre ${elapsedDays} días transcurridos`
-              : `Sobre ${daysInMonth} días del mes`
+              : `Sobre los ${totalDays} días del ciclo`
           }
           icon={TrendingUp}
           isLoading={isLoading}
@@ -321,6 +331,7 @@ export default function ReportsPage() {
                       tickLine={false}
                       axisLine={false}
                       tickMargin={8}
+                      minTickGap={24}
                     />
                     <YAxis
                       tickLine={false}
@@ -371,6 +382,7 @@ export default function ReportsPage() {
                       tickLine={false}
                       axisLine={false}
                       tickMargin={8}
+                      minTickGap={24}
                     />
                     <YAxis
                       tickLine={false}

@@ -89,41 +89,89 @@ export function formatExpenseDate(date: Date | string) {
   });
 }
 
+/** Etiqueta corta para los ejes de las gráficas diarias ("15 ago"). */
+export function formatDayTick(date: Date) {
+  return format(date, "d MMM", { locale: es });
+}
+
 export function formatLongDate(date: Date | string) {
   const value = typeof date === "string" ? new Date(date) : date;
   return format(value, "PPP", { locale: es });
 }
 
-/**
- * Rango del ciclo de presupuesto que contiene a `reference`, según el día de
- * corte configurado. Con cycleStartDay = 1 equivale al mes calendario.
- */
-export function getCycleRange(cycleStartDay: number, reference = new Date()) {
-  const day = Math.min(Math.max(cycleStartDay, 1), 28);
-  const start = new Date(
-    reference.getFullYear(),
-    reference.getMonth(),
-    day,
-    0,
-    0,
-    0,
-    0,
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+/** El día de corte se limita a 1-28 para que exista en todos los meses. */
+export function normalizeCycleStartDay(cycleStartDay: number) {
+  return Math.min(Math.max(Math.trunc(cycleStartDay) || 1, 1), 28);
+}
+
+function withCycleMetrics(start: Date, end: Date, reference: Date) {
+  const totalDays = Math.round((end.getTime() - start.getTime()) / MS_PER_DAY);
+  const daysLeft = Math.min(
+    totalDays,
+    Math.max(0, Math.ceil((end.getTime() - reference.getTime()) / MS_PER_DAY)),
   );
 
-  // Si aún no llegamos al día de corte, el ciclo vigente empezó el mes pasado.
+  return { start, end, totalDays, daysLeft, daysElapsed: totalDays - daysLeft };
+}
+
+/**
+ * Ciclo que arranca en el día de corte del mes indicado (el "ancla").
+ * Con cycleStartDay = 1 coincide exactamente con el mes calendario.
+ */
+export function getCycleRangeForAnchor(
+  cycleStartDay: number,
+  anchorMonth: number,
+  anchorYear: number,
+  reference = new Date(),
+) {
+  const day = normalizeCycleStartDay(cycleStartDay);
+  const start = new Date(anchorYear, anchorMonth, day, 0, 0, 0, 0);
+  const end = new Date(anchorYear, anchorMonth + 1, day, 0, 0, 0, 0);
+
+  return withCycleMetrics(start, end, reference);
+}
+
+/**
+ * Mes/año en el que arrancó el ciclo que contiene a `reference`. Si todavía no
+ * se alcanza el día de corte, el ciclo vigente empezó el mes anterior.
+ */
+export function getCycleAnchor(cycleStartDay: number, reference = new Date()) {
+  const day = normalizeCycleStartDay(cycleStartDay);
+  const anchor = new Date(reference.getFullYear(), reference.getMonth(), 1);
+
   if (reference.getDate() < day) {
-    start.setMonth(start.getMonth() - 1);
+    anchor.setMonth(anchor.getMonth() - 1);
   }
 
-  const end = new Date(start);
-  end.setMonth(end.getMonth() + 1);
+  return { month: anchor.getMonth(), year: anchor.getFullYear() };
+}
 
-  const msPerDay = 1000 * 60 * 60 * 24;
-  const daysLeft = Math.max(
-    0,
-    Math.ceil((end.getTime() - reference.getTime()) / msPerDay),
+/** Rango del ciclo que contiene a `reference`. */
+export function getCycleRange(cycleStartDay: number, reference = new Date()) {
+  const anchor = getCycleAnchor(cycleStartDay, reference);
+  return getCycleRangeForAnchor(
+    cycleStartDay,
+    anchor.month,
+    anchor.year,
+    reference,
   );
-  const totalDays = Math.round((end.getTime() - start.getTime()) / msPerDay);
+}
 
-  return { start, end, daysLeft, totalDays, daysElapsed: totalDays - daysLeft };
+/**
+ * Con corte el día 1 basta el nombre del mes; con cualquier otro el periodo
+ * cruza dos meses y hay que mostrar el rango completo.
+ */
+export function formatPeriodLabel(
+  cycleStartDay: number,
+  start: Date,
+  end: Date,
+) {
+  if (normalizeCycleStartDay(cycleStartDay) === 1) {
+    return formatMonthLabel(start.getMonth(), start.getFullYear());
+  }
+
+  const lastDay = new Date(end.getTime() - MS_PER_DAY);
+  return `${format(start, "d MMM", { locale: es })} – ${format(lastDay, "d MMM", { locale: es })}`;
 }

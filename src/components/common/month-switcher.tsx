@@ -11,7 +11,8 @@ import {
   SelectValue,
 } from "~/components/ui/select";
 import { usePeriod } from "~/components/providers/period-provider";
-import { MONTH_NAMES } from "~/lib/format";
+import { useAppSettings } from "~/hooks/use-app-settings";
+import { MONTH_NAMES, normalizeCycleStartDay } from "~/lib/format";
 import { cn } from "~/lib/utils";
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -22,6 +23,7 @@ export function MonthSwitcher({ className }: { className?: string }) {
   const {
     month,
     year,
+    label,
     isCurrentPeriod,
     canGoForward,
     setPeriod,
@@ -29,6 +31,11 @@ export function MonthSwitcher({ className }: { className?: string }) {
     goToNext,
     goToCurrent,
   } = usePeriod();
+  const { cycleStartDay } = useAppSettings();
+
+  // Con corte distinto al día 1 el periodo cruza dos meses, así que hay que
+  // mostrar el rango real además del mes ancla.
+  const showRange = normalizeCycleStartDay(cycleStartDay) !== 1;
 
   return (
     <div className={cn("flex items-center gap-1.5", className)}>
@@ -87,6 +94,12 @@ export function MonthSwitcher({ className }: { className?: string }) {
         <Button variant="ghost" size="sm" onClick={goToCurrent}>
           Hoy
         </Button>
+      ) : null}
+
+      {showRange ? (
+        <span className="text-muted-foreground ml-1 text-xs whitespace-nowrap">
+          {label}
+        </span>
       ) : null}
     </div>
   );

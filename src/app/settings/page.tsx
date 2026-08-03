@@ -201,8 +201,8 @@ function SettingsForm({ settings }: { settings: AppSettings | null }) {
                 </SelectContent>
               </Select>
               <p className="text-muted-foreground text-sm">
-                Útil si cobras a mitad de mes. Los reportes siguen agrupando por
-                mes calendario.
+                Útil si cobras a mitad de mes: el inicio, los gastos y los
+                reportes se agrupan por este ciclo, no por mes calendario.
               </p>
             </div>
 

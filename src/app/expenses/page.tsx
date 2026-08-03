@@ -28,7 +28,7 @@ import { api } from "~/trpc/react";
 const ALL_CATEGORIES = "all";
 
 export default function ExpensesPage() {
-  const { month, year, label } = usePeriod();
+  const { from, to, label } = usePeriod();
   const { formatAmount } = useAppSettings();
   const { openCreate } = useExpenseDialog();
 
@@ -40,8 +40,8 @@ export default function ExpensesPage() {
 
   const { data: expensesResponse, isLoading } = api.useExpenses.getAll.useQuery(
     {
-      month,
-      year,
+      from,
+      to,
       categoryId: categoryId === ALL_CATEGORIES ? undefined : categoryId,
     },
   );

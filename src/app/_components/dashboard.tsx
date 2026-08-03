@@ -39,16 +39,16 @@ import { formatExpenseDate, formatPercent } from "~/lib/format";
 import { api } from "~/trpc/react";
 
 export default function Dashboard() {
-  const { month, year, label, isCurrentPeriod } = usePeriod();
-  const { formatAmount, monthlyBudget, cycle } = useAppSettings();
+  const { from, to, label, isCurrentPeriod, daysLeft, totalDays } = usePeriod();
+  const { formatAmount, monthlyBudget } = useAppSettings();
   const { openCreate } = useExpenseDialog();
 
   const { data: categoriesResponse, isLoading: categoriesLoading } =
     api.useCategories.getAll.useQuery();
   const { data: statsResponse, isLoading: statsLoading } =
-    api.useExpenses.getMonthlyStats.useQuery({ month, year });
+    api.useExpenses.getPeriodStats.useQuery({ from, to });
   const { data: expensesResponse, isLoading: expensesLoading } =
-    api.useExpenses.getAll.useQuery({ month, year });
+    api.useExpenses.getAll.useQuery({ from, to });
 
   const stats = statsResponse?.result;
   const categories = categoriesResponse?.result ?? [];
@@ -129,13 +129,11 @@ export default function Dashboard() {
         <StatCard
           title={isCurrentPeriod ? "Días restantes" : "Categorías con gasto"}
           value={
-            isCurrentPeriod
-              ? String(cycle.daysLeft)
-              : String(categoryStats.length)
+            isCurrentPeriod ? String(daysLeft) : String(categoryStats.length)
           }
           hint={
             isCurrentPeriod
-              ? `De un ciclo de ${cycle.totalDays} días`
+              ? `De un ciclo de ${totalDays} días`
               : "En el periodo seleccionado"
           }
           icon={Tags}

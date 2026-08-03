@@ -6,7 +6,6 @@ import {
   DEFAULT_CURRENCY,
   formatCompactCurrency,
   formatCurrency,
-  getCycleRange,
 } from "~/lib/format";
 import { api } from "~/trpc/react";
 
@@ -38,7 +37,6 @@ export function useAppSettings() {
     currency,
     cycleStartDay,
     monthlyBudget: settings?.monthlyBudget ?? null,
-    cycle: getCycleRange(cycleStartDay),
     formatAmount,
     formatCompactAmount,
   };
