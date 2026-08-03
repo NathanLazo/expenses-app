@@ -1,8 +1,11 @@
 "use client";
 
-import type React from "react";
+import { useState } from "react";
+import { CalendarClock, Coins, Palette } from "lucide-react";
+import { toast } from "sonner";
 
-import { useState, useEffect } from "react";
+import { ThemeToggle } from "~/components/theme-toggle";
+import { Button } from "~/components/ui/button";
 import {
   Card,
   CardContent,
@@ -10,7 +13,6 @@ import {
   CardHeader,
   CardTitle,
 } from "~/components/ui/card";
-import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import {
@@ -20,203 +22,251 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
-import { api } from "~/trpc/react";
-import { toast } from "sonner";
+import { Separator } from "~/components/ui/separator";
+import { Skeleton } from "~/components/ui/skeleton";
+import {
+  CURRENCIES,
+  DEFAULT_CURRENCY,
+  formatCurrency,
+  formatLongDate,
+  getCycleRange,
+} from "~/lib/format";
+import { api, type RouterOutputs } from "~/trpc/react";
+
+type AppSettings = NonNullable<RouterOutputs["useSettings"]["get"]["result"]>;
 
 export default function SettingsPage() {
-  const [formData, setFormData] = useState({
-    cycleStartDay: 1,
-    monthlyBudget: "",
-    currency: "USD",
-  });
-
-  const { data: settings, isLoading } = api.useSettings.get.useQuery();
-  const updateSettings = api.useSettings.update.useMutation({
-    onSuccess: () => {
-      toast.success("Configuración guardada", {
-        description: "Los cambios se han guardado exitosamente.",
-      });
-    },
-  });
-
-  useEffect(() => {
-    if (settings) {
-      setFormData({
-        cycleStartDay: settings.result?.cycleStartDay ?? 1,
-        monthlyBudget: settings.result?.monthlyBudget?.toString() ?? "",
-        currency: settings.result?.currency ?? "USD",
-      });
-    }
-  }, [settings]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    updateSettings.mutate({
-      cycleStartDay: formData.cycleStartDay,
-      monthlyBudget: formData.monthlyBudget
-        ? Number.parseFloat(formData.monthlyBudget)
-        : undefined,
-      currency: formData.currency,
-    });
-  };
+  const { data: settingsResponse, isLoading } = api.useSettings.get.useQuery();
 
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="border-primary h-32 w-32 animate-spin rounded-full border-b-2"></div>
+      <div className="max-w-3xl space-y-4">
+        <Skeleton className="h-64 rounded-xl" />
+        <Skeleton className="h-40 rounded-xl" />
       </div>
     );
   }
 
-  return (
-    <div className="flex-1 space-y-4 p-4 pt-6 md:p-8">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Configuración</h2>
-        <p className="text-muted-foreground">
-          Personaliza tu experiencia de gestión de gastos
-        </p>
-      </div>
+  return <SettingsForm settings={settingsResponse?.result ?? null} />;
+}
 
-      <div className="max-w-2xl space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Ciclo de Presupuesto</CardTitle>
-            <CardDescription>
-              Configura cuándo se reinicia tu ciclo mensual de gastos
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+/**
+ * El formulario se monta sólo cuando los datos ya existen y toma de ellos su
+ * estado inicial. Sincronizarlo con un `useEffect` después del montaje rompía
+ * los `Select` de Radix, que perdían el valor recibido tarde.
+ */
+function SettingsForm({ settings }: { settings: AppSettings | null }) {
+  const [form, setForm] = useState({
+    cycleStartDay: String(settings?.cycleStartDay ?? 1),
+    monthlyBudget: settings?.monthlyBudget?.toString() ?? "",
+    currency: settings?.currency ?? DEFAULT_CURRENCY,
+  });
+
+  const utils = api.useUtils();
+
+  const updateSettings = api.useSettings.update.useMutation({
+    onSuccess: async (data) => {
+      if (data.status !== 200) {
+        toast.error("No se pudo guardar la configuración");
+        return;
+      }
+      await utils.useSettings.get.invalidate();
+      toast.success("Configuración guardada");
+    },
+    onError: () => toast.error("No se pudo guardar la configuración"),
+  });
+
+  const budgetValue = form.monthlyBudget
+    ? Number.parseFloat(form.monthlyBudget)
+    : undefined;
+  const isBudgetInvalid = budgetValue !== undefined && budgetValue <= 0;
+
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+
+    if (isBudgetInvalid) {
+      toast.error("El presupuesto debe ser mayor a 0");
+      return;
+    }
+
+    updateSettings.mutate({
+      cycleStartDay: Number.parseInt(form.cycleStartDay, 10),
+      monthlyBudget: budgetValue,
+      currency: form.currency,
+    });
+  };
+
+  const cycle = getCycleRange(Number.parseInt(form.cycleStartDay, 10) || 1);
+
+  return (
+    <div className="max-w-3xl space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Coins className="size-4" />
+            Presupuesto y moneda
+          </CardTitle>
+          <CardDescription>
+            La moneda se aplica a todos los montos de la aplicación.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="grid gap-5 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="cycleStartDay">
-                  Día de inicio del ciclo mensual
-                </Label>
+                <Label htmlFor="currency">Moneda</Label>
                 <Select
-                  value={formData.cycleStartDay.toString()}
+                  value={form.currency}
                   onValueChange={(value) =>
-                    setFormData({
-                      ...formData,
-                      cycleStartDay: Number.parseInt(value),
-                    })
+                    setForm((prev) => ({ ...prev, currency: value }))
                   }
                 >
-                  <SelectTrigger>
-                    <SelectValue />
+                  <SelectTrigger id="currency" className="w-full">
+                    {/* Etiqueta explícita: no depende de que el contenido del
+                        select se haya abierto alguna vez para mostrarse. */}
+                    <SelectValue>
+                      {CURRENCIES.find(
+                        (currency) => currency.value === form.currency,
+                      )?.label ?? form.currency}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    {Array.from({ length: 28 }, (_, i) => i + 1).map((day) => (
-                      <SelectItem key={day} value={day.toString()}>
-                        Día {day} de cada mes
+                    {CURRENCIES.map((currency) => (
+                      <SelectItem key={currency.value} value={currency.value}>
+                        {currency.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 <p className="text-muted-foreground text-sm">
-                  El ciclo se reiniciará cada día {formData.cycleStartDay} del
-                  mes
+                  Ejemplo: {formatCurrency(1234.5, form.currency)}
                 </p>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="monthlyBudget">
-                  Presupuesto mensual total (opcional)
+                  Presupuesto mensual total{" "}
+                  <span className="text-muted-foreground font-normal">
+                    (opcional)
+                  </span>
                 </Label>
                 <Input
                   id="monthlyBudget"
                   type="number"
+                  inputMode="decimal"
                   step="0.01"
+                  min="0"
                   placeholder="0.00"
-                  value={formData.monthlyBudget}
-                  onChange={(e) =>
-                    setFormData({ ...formData, monthlyBudget: e.target.value })
+                  className="tabular-nums"
+                  value={form.monthlyBudget}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      monthlyBudget: event.target.value,
+                    }))
                   }
+                  aria-invalid={isBudgetInvalid}
                 />
                 <p className="text-muted-foreground text-sm">
-                  Establece un límite general para todos tus gastos mensuales
+                  {isBudgetInvalid
+                    ? "El presupuesto debe ser mayor a 0."
+                    : "Se muestra como barra de avance en el inicio."}
                 </p>
               </div>
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="currency">Moneda</Label>
-                <Select
-                  value={formData.currency}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, currency: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="USD">USD ($)</SelectItem>
-                    <SelectItem value="EUR">EUR (€)</SelectItem>
-                    <SelectItem value="MXN">MXN ($)</SelectItem>
-                    <SelectItem value="COP">COP ($)</SelectItem>
-                    <SelectItem value="ARS">ARS ($)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <Separator />
 
-              <Button type="submit" disabled={updateSettings.isPending}>
-                {updateSettings.isPending ? "Guardando..." : "Guardar Cambios"}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+            <div className="space-y-2">
+              <Label htmlFor="cycleStartDay">Día de inicio del ciclo</Label>
+              <Select
+                value={form.cycleStartDay}
+                onValueChange={(value) =>
+                  setForm((prev) => ({ ...prev, cycleStartDay: value }))
+                }
+              >
+                <SelectTrigger id="cycleStartDay" className="w-full sm:w-72">
+                  <SelectValue>
+                    Día {form.cycleStartDay} de cada mes
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 28 }, (_, index) => index + 1).map(
+                    (day) => (
+                      <SelectItem key={day} value={String(day)}>
+                        Día {day} de cada mes
+                      </SelectItem>
+                    ),
+                  )}
+                </SelectContent>
+              </Select>
+              <p className="text-muted-foreground text-sm">
+                Útil si cobras a mitad de mes. Los reportes siguen agrupando por
+                mes calendario.
+              </p>
+            </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Información del Ciclo Actual</CardTitle>
-            <CardDescription>
-              Detalles sobre tu configuración actual
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground text-sm">
-                Próximo reinicio de ciclo:
-              </span>
-              <span className="text-sm font-medium">
-                {new Date(
-                  new Date().getFullYear(),
-                  new Date().getMonth() + 1,
-                  formData.cycleStartDay,
-                ).toLocaleDateString()}
+            <Button type="submit" disabled={updateSettings.isPending}>
+              {updateSettings.isPending ? "Guardando..." : "Guardar cambios"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CalendarClock className="size-4" />
+            Ciclo actual
+          </CardTitle>
+          <CardDescription>
+            Calculado con el día de corte seleccionado.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-muted-foreground">Inició el</span>
+            <span className="font-medium">{formatLongDate(cycle.start)}</span>
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-muted-foreground">Próximo reinicio</span>
+            <span className="font-medium">{formatLongDate(cycle.end)}</span>
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-muted-foreground">Días restantes</span>
+            <span className="font-medium tabular-nums">
+              {cycle.daysLeft} de {cycle.totalDays}
+            </span>
+          </div>
+          {budgetValue && !isBudgetInvalid ? (
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-muted-foreground">Disponible por día</span>
+              <span className="font-medium tabular-nums">
+                {formatCurrency(
+                  budgetValue / Math.max(cycle.totalDays, 1),
+                  form.currency,
+                )}
               </span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground text-sm">
-                Días restantes en ciclo actual:
-              </span>
-              <span className="text-sm font-medium">
-                {(() => {
-                  const today = new Date();
-                  const nextCycle = new Date(
-                    today.getFullYear(),
-                    today.getMonth() + 1,
-                    formData.cycleStartDay,
-                  );
-                  const diffTime = nextCycle.getTime() - today.getTime();
-                  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                  return diffDays;
-                })()}{" "}
-                días
-              </span>
-            </div>
-            {formData.monthlyBudget && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground text-sm">
-                  Presupuesto mensual:
-                </span>
-                <span className="text-sm font-medium">
-                  ${Number.parseFloat(formData.monthlyBudget).toFixed(2)}
-                </span>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Palette className="size-4" />
+            Apariencia
+          </CardTitle>
+          <CardDescription>
+            Elige el tema de la interfaz. &quot;Sistema&quot; sigue la
+            configuración de tu dispositivo.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ThemeToggle />
+        </CardContent>
+      </Card>
     </div>
   );
 }

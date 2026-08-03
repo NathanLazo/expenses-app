@@ -5,7 +5,7 @@ import { buildRouteMetadata } from "~/lib/seo";
 export const metadata: Metadata = buildRouteMetadata({
   title: "Gastos",
   description:
-    "Registra un nuevo gasto, adjunta su evidencia y consulta el historial de transacciones del mes.",
+    "Consulta, filtra y edita todas tus transacciones del periodo, y registra nuevos gastos.",
   path: "/expenses",
 });
 
