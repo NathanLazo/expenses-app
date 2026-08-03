@@ -101,6 +101,7 @@ export default function Dashboard() {
             <div className="space-y-1.5 pt-1">
               <Progress
                 value={Math.min(budgetUsed, 100)}
+                aria-label={`Presupuesto usado: ${formatPercent(budgetUsed)} de ${formatAmount(monthlyBudget)}`}
                 className={isOverBudget ? "[&>div]:bg-destructive" : undefined}
               />
               <p className="text-muted-foreground text-xs">
@@ -214,7 +215,7 @@ export default function Dashboard() {
                           aria-label={`${stat.category.name}: ${formatPercent(share)} del total`}
                         >
                           <div
-                            className="h-full rounded-full transition-all"
+                            className="h-full rounded-full transition-[width] duration-300 motion-reduce:transition-none"
                             style={{
                               width: `${share}%`,
                               backgroundColor: stat.category.color,
@@ -280,9 +281,16 @@ export default function Dashboard() {
                       <p className="truncate text-sm font-medium">
                         {expense.description}
                       </p>
-                      <p className="text-muted-foreground truncate text-xs">
+                      <p className="text-muted-foreground flex items-center gap-1 truncate text-xs">
                         {expense.category.name} ·{" "}
                         {formatExpenseDate(expense.date)}
+                        {expense.image ? (
+                          <Receipt
+                            role="img"
+                            aria-label="Con ticket adjunto"
+                            className="size-3 shrink-0"
+                          />
+                        ) : null}
                       </p>
                     </div>
                     <span className="shrink-0 text-sm font-semibold tabular-nums">

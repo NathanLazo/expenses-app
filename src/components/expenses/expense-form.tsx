@@ -2,10 +2,16 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CalendarIcon } from "lucide-react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 import { CategoryIcon } from "~/components/common/category-icon";
+import {
+  ReceiptField,
+  useDiscardReceipt,
+} from "~/components/expenses/receipt-field";
+import { ReceiptViewer } from "~/components/expenses/receipt-viewer";
 import { Button } from "~/components/ui/button";
 import { Calendar } from "~/components/ui/calendar";
 import {
@@ -51,6 +57,7 @@ const expenseFormSchema = z.object({
     .max(120, "Máximo 120 caracteres"),
   categoryId: z.string().min(1, "Selecciona una categoría"),
   date: z.date(),
+  image: z.string().url().nullable(),
 });
 
 export type ExpenseFormValues = z.infer<typeof expenseFormSchema>;
@@ -60,6 +67,7 @@ export type ExpenseSubmitValues = {
   description: string;
   categoryId: string;
   date: Date;
+  image: string | null;
 };
 
 type ExpenseFormProps = {
@@ -81,6 +89,9 @@ export function ExpenseForm({
 }: ExpenseFormProps) {
   const { formatAmount } = useAppSettings();
 
+  const [isUploading, setIsUploading] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
   const form = useForm<ExpenseFormValues>({
     resolver: zodResolver(expenseFormSchema),
     defaultValues: {
@@ -88,9 +99,24 @@ export function ExpenseForm({
       description: "",
       categoryId: "",
       date: new Date(),
+      image: null,
       ...defaultValues,
     },
   });
+
+  const discardReceipt = useDiscardReceipt();
+
+  /**
+   * Si el usuario sube una foto y luego cancela, esa imagen nunca quedará
+   * ligada a un gasto: la soltamos para no dejar basura en el store.
+   */
+  const handleCancel = () => {
+    const current = form.getValues("image");
+    if (current && current !== defaultValues?.image) {
+      discardReceipt(current);
+    }
+    onCancel();
+  };
 
   const selectedCategoryId = form.watch("categoryId");
   const selectedCategory = categories.find(
@@ -103,6 +129,7 @@ export function ExpenseForm({
       description: values.description.trim(),
       categoryId: values.categoryId,
       date: values.date,
+      image: values.image,
     }),
   );
 
@@ -232,6 +259,29 @@ export function ExpenseForm({
           )}
         />
 
+        <FormField
+          control={form.control}
+          name="image"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Ticket</FormLabel>
+              <FormControl>
+                <ReceiptField
+                  value={field.value}
+                  onChange={field.onChange}
+                  onUploadingChange={setIsUploading}
+                  onPreview={setPreviewUrl}
+                  disabled={isPending}
+                />
+              </FormControl>
+              <FormDescription>
+                Opcional. Toma la foto del comprobante para tenerlo a la mano.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
         {selectedCategory ? (
           <div className="bg-muted/50 flex items-center gap-3 rounded-lg border p-3">
             <CategoryIcon
@@ -256,16 +306,22 @@ export function ExpenseForm({
           <Button
             type="button"
             variant="outline"
-            onClick={onCancel}
+            onClick={handleCancel}
             disabled={isPending}
           >
             Cancelar
           </Button>
-          <Button type="submit" disabled={isPending}>
-            {isPending ? "Guardando..." : submitLabel}
+          <Button type="submit" disabled={Boolean(isPending) || isUploading}>
+            {isPending
+              ? "Guardando..."
+              : isUploading
+                ? "Subiendo ticket..."
+                : submitLabel}
           </Button>
         </div>
       </form>
+
+      <ReceiptViewer url={previewUrl} onClose={() => setPreviewUrl(null)} />
     </Form>
   );
 }

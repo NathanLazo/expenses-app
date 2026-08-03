@@ -2,10 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Plus, Wallet } from "lucide-react";
+import { Wallet } from "lucide-react";
 
-import { useExpenseDialog } from "~/components/expenses/expense-dialog-provider";
-import { Button } from "~/components/ui/button";
 import {
   Sidebar,
   SidebarContent,
@@ -25,7 +23,6 @@ import { siteConfig } from "~/lib/seo";
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const { openCreate } = useExpenseDialog();
   const { currency, monthlyBudget, formatAmount } = useAppSettings();
   const { isMobile, setOpenMobile } = useSidebar();
 
@@ -49,16 +46,6 @@ export function AppSidebar() {
             </span>
           </span>
         </Link>
-
-        <Button
-          onClick={() => {
-            closeOnMobile();
-            openCreate();
-          }}
-        >
-          <Plus className="mr-1 size-4" />
-          Nuevo gasto
-        </Button>
       </SidebarHeader>
 
       <SidebarContent>

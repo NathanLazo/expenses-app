@@ -17,10 +17,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <PeriodProvider>
       <ExpenseDialogProvider>
         <SidebarProvider>
+          {/* Primer elemento enfocable: salta el sidebar y el header, que se
+              repiten en todas las rutas. */}
+          <a
+            href="#contenido"
+            className="bg-background focus-visible:ring-ring sr-only focus-visible:fixed focus-visible:top-3 focus-visible:left-3 focus-visible:z-50 focus-visible:not-sr-only focus-visible:rounded-md focus-visible:border focus-visible:px-3 focus-visible:py-2 focus-visible:text-sm focus-visible:font-medium focus-visible:ring-[3px]"
+          >
+            Saltar al contenido
+          </a>
           <AppSidebar />
           <SidebarInset className="min-w-0">
             <AppHeader />
-            <main className="flex-1 px-4 pt-4 pb-24 md:px-6 md:pb-8">
+            <main
+              id="contenido"
+              tabIndex={-1}
+              className="flex-1 px-4 pt-4 pb-24 outline-none md:px-6 md:pb-8"
+            >
               <div className="mx-auto w-full max-w-6xl">{children}</div>
             </main>
             <MobileNav />

@@ -15,7 +15,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
     >
       <TRPCReactProvider>
         <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
-        <Toaster position="top-center" closeButton />
+        <Toaster
+          position="top-center"
+          closeButton
+          containerAriaLabel="Notificaciones"
+        />
       </TRPCReactProvider>
     </ThemeProvider>
   );

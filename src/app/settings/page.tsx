@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarClock, Coins, Palette } from "lucide-react";
+import { CalendarClock, Coins, Loader2, Palette } from "lucide-react";
 import { toast } from "sonner";
 
 import { ThemeToggle } from "~/components/theme-toggle";
@@ -206,8 +206,16 @@ function SettingsForm({ settings }: { settings: AppSettings | null }) {
               </p>
             </div>
 
+            {/* La etiqueta no cambia al enviar: el nombre accesible del botón
+                debe seguir siendo el mismo mientras el foco está en él. */}
             <Button type="submit" disabled={updateSettings.isPending}>
-              {updateSettings.isPending ? "Guardando..." : "Guardar cambios"}
+              {updateSettings.isPending ? (
+                <Loader2
+                  className="size-4 animate-spin motion-reduce:animate-none"
+                  aria-hidden
+                />
+              ) : null}
+              Guardar cambios
             </Button>
           </form>
         </CardContent>

@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { periodInput, resolvePeriod } from "~/server/api/period";
+import { deleteReceipt } from "~/server/blob";
 
 export const useExpenses = createTRPCRouter({
   create: publicProcedure
@@ -12,6 +13,7 @@ export const useExpenses = createTRPCRouter({
         description: z.string(),
         date: z.date(),
         categoryId: z.string(),
+        image: z.string().url().nullable().optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -22,6 +24,7 @@ export const useExpenses = createTRPCRouter({
             description: input.description,
             date: input.date,
             categoryId: input.categoryId,
+            image: input.image ?? null,
           },
         });
 
@@ -99,11 +102,23 @@ export const useExpenses = createTRPCRouter({
         description: z.string().min(1).optional(),
         categoryId: z.string().optional(),
         date: z.date().optional(),
+        image: z.string().url().nullable().optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
       try {
         const { id, ...data } = input;
+
+        // Si el ticket cambia hay que soltar el anterior, si no queda huérfano
+        // en el store para siempre.
+        const previous =
+          data.image === undefined
+            ? null
+            : await ctx.db.expense.findUnique({
+                where: { id },
+                select: { image: true },
+              });
+
         const expense = await ctx.db.expense.update({
           where: { id },
           data,
@@ -111,6 +126,10 @@ export const useExpenses = createTRPCRouter({
             category: true,
           },
         });
+
+        if (previous?.image && previous.image !== expense.image) {
+          await deleteReceipt(previous.image);
+        }
 
         if (!expense) {
           return {
@@ -145,6 +164,8 @@ export const useExpenses = createTRPCRouter({
           where: { id: input.id },
         });
 
+        await deleteReceipt(expense.image);
+
         if (!expense) {
           return {
             result: null,
@@ -166,6 +187,49 @@ export const useExpenses = createTRPCRouter({
           status: 500,
           error: error,
           message: "Expense deletion failed",
+        };
+      }
+    }),
+
+  /**
+   * Borra un ticket que se subió pero nunca llegó a guardarse (el usuario lo
+   * quitó, lo reemplazó o cerró el formulario). Sin esto, cada foto descartada
+   * quedaría ocupando espacio en Blob para siempre.
+   */
+  discardReceipt: publicProcedure
+    .input(z.object({ url: z.string().url() }))
+    .mutation(async ({ input, ctx }) => {
+      try {
+        // Red de seguridad: si algún gasto todavía apunta a esa URL, no se toca.
+        const inUse = await ctx.db.expense.findFirst({
+          where: { image: input.url },
+          select: { id: true },
+        });
+
+        if (inUse) {
+          return {
+            result: { deleted: false },
+            status: 200,
+            error: null,
+            message: "Receipt still in use",
+          };
+        }
+
+        await deleteReceipt(input.url);
+
+        return {
+          result: { deleted: true },
+          status: 200,
+          error: null,
+          message: "Receipt discarded successfully",
+        };
+      } catch (error) {
+        console.error(error);
+        return {
+          result: null,
+          status: 500,
+          error: error,
+          message: "Receipt discard failed",
         };
       }
     }),

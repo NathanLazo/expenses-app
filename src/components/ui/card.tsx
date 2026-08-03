@@ -28,9 +28,14 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
   );
 }
 
-function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
+/**
+ * Encabezado real de la tarjeta: cada tarjeta es una sección de la página, así
+ * que el lector de pantalla puede navegarlas por encabezados bajo el <h1> de la
+ * ruta. Preflight hereda tamaño y peso, el aspecto no cambia.
+ */
+function CardTitle({ className, ...props }: React.ComponentProps<"h2">) {
   return (
-    <div
+    <h2
       data-slot="card-title"
       className={cn("leading-none font-semibold", className)}
       {...props}

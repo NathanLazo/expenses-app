@@ -255,6 +255,7 @@ export default function CategoriesPage() {
                     <div className="space-y-1.5">
                       <Progress
                         value={Math.min(usage, 100)}
+                        aria-label={`${category.name}: ${formatPercent(usage)} de ${formatAmount(category.budget)}`}
                         className={
                           isOver ? "[&>div]:bg-destructive" : undefined
                         }

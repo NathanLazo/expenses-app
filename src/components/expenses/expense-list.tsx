@@ -1,9 +1,12 @@
 "use client";
 
+import Image from "next/image";
+import { useState } from "react";
 import { MoreVertical, Pencil, Trash2 } from "lucide-react";
 
 import { CategoryIcon } from "~/components/common/category-icon";
 import { useExpenseDialog } from "~/components/expenses/expense-dialog-provider";
+import { ReceiptViewer } from "~/components/expenses/receipt-viewer";
 import { Button } from "~/components/ui/button";
 import {
   DropdownMenu,
@@ -53,6 +56,7 @@ export function ExpenseListSkeleton({ rows = 5 }: { rows?: number }) {
 export function ExpenseRow({ expense }: { expense: ExpenseWithCategory }) {
   const { formatAmount } = useAppSettings();
   const { openEdit, requestDelete } = useExpenseDialog();
+  const [isReceiptOpen, setIsReceiptOpen] = useState(false);
 
   return (
     <li className="hover:bg-accent/50 flex items-center gap-3 rounded-lg border p-3 transition-colors">
@@ -67,6 +71,23 @@ export function ExpenseRow({ expense }: { expense: ExpenseWithCategory }) {
           {expense.category.name}
         </p>
       </div>
+
+      {expense.image ? (
+        <button
+          type="button"
+          onClick={() => setIsReceiptOpen(true)}
+          aria-label={`Ver ticket de ${expense.description}`}
+          className="focus-visible:ring-ring relative size-9 shrink-0 overflow-hidden rounded-md border transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:outline-none"
+        >
+          <Image
+            src={expense.image}
+            alt=""
+            fill
+            sizes="36px"
+            className="object-cover"
+          />
+        </button>
+      ) : null}
 
       <span className="shrink-0 font-semibold tabular-nums">
         {formatAmount(expense.amount)}
@@ -97,6 +118,12 @@ export function ExpenseRow({ expense }: { expense: ExpenseWithCategory }) {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <ReceiptViewer
+        url={isReceiptOpen ? expense.image : null}
+        onClose={() => setIsReceiptOpen(false)}
+        title={expense.description}
+      />
     </li>
   );
 }

@@ -11,6 +11,16 @@ export const env = createEnv({
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
+    /**
+     * Token del store de Vercel Blob donde se guardan las fotos de los tickets.
+     * Vercel lo inyecta al vincular el store; en local se obtiene con
+     * `vercel env pull .env`.
+     *
+     * Es opcional a propósito: adjuntar el ticket es opcional, así que sin
+     * store la app sigue funcionando y sólo falla la subida (con un mensaje
+     * claro) en vez de impedir que arranque.
+     */
+    BLOB_READ_WRITE_TOKEN: z.string().min(1).optional(),
   },
 
   /**
@@ -29,6 +39,7 @@ export const env = createEnv({
   runtimeEnv: {
     DATABASE_URL: process.env.DATABASE_URL,
     NODE_ENV: process.env.NODE_ENV,
+    BLOB_READ_WRITE_TOKEN: process.env.BLOB_READ_WRITE_TOKEN,
     // NEXT_PUBLIC_CLIENTVAR: process.env.NEXT_PUBLIC_CLIENTVAR,
   },
   /**

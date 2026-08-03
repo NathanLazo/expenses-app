@@ -172,6 +172,7 @@ export function ExpenseDialogProvider({
                     description: editing.description,
                     categoryId: editing.categoryId,
                     date: new Date(editing.date),
+                    image: editing.image,
                   }
                 : undefined
             }
