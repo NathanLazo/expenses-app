@@ -73,7 +73,7 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="p-4">
-        <div className="bg-sidebar-accent text-sidebar-accent-foreground rounded-lg p-3 text-xs">
+        <div className="bg-sidebar-accent text-sidebar-accent-foreground rounded-xl p-4 text-xs">
           <p className="font-medium">
             {monthlyBudget
               ? `Presupuesto: ${formatAmount(monthlyBudget)}`

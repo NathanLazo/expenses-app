@@ -30,7 +30,9 @@ export function StatCard({
         <CardTitle className="text-muted-foreground text-sm font-medium">
           {title}
         </CardTitle>
-        <Icon className="text-muted-foreground size-4 shrink-0" />
+        {/* El icono es una marca de apoyo, no un dato: se queda en el gris de
+            marca para que el número sea lo único que compite por atención. */}
+        <Icon className="text-brand size-4 shrink-0" />
       </CardHeader>
       <CardContent className="space-y-2">
         {isLoading ? (
@@ -40,7 +42,7 @@ export function StatCard({
           </>
         ) : (
           <>
-            <div className="text-2xl font-bold tracking-tight tabular-nums">
+            <div className="text-2xl font-semibold tabular-nums">
               {value}
             </div>
             {hint ? (

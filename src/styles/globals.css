@@ -3,23 +3,56 @@
 
 @custom-variant dark (&:is(.dark *));
 
-@theme {
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif,
-    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+/*
+ * Sistema de diseño de la plataforma. Los tokens vienen de DESIGN.md:
+ * paleta gris-violeta desaturada alrededor de #8e8ea0, tipografía del sistema,
+ * rejilla de 8px, radio base de 5px y movimiento uniforme de 400ms.
+ *
+ * Dos desviaciones deliberadas respecto al documento, ambas por contraste:
+ *   1. El texto de cuerpo NO usa #8e8ea0 (3.2:1 sobre blanco, falla WCAG AA).
+ *      El color de marca vive en el anillo de foco, bordes y acentos; el texto
+ *      usa un casi-negro de la misma familia de tono.
+ *   2. El relleno de los botones primarios oscurece #8e8ea0 hasta pasar 4.5:1
+ *      con texto blanco. Es el mismo tono, sólo más profundo.
+ */
 
-  /* Las curvas nativas de CSS son demasiado suaves: estas dan el arranque seco
-     que hace que la interfaz se sienta respondona. */
+@theme {
+  /* DESIGN.md especifica system-ui: cero descarga de fuente, render nativo. */
+  --font-sans:
+    system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
+    "Noto Color Emoji";
+
+  /* Escala tipográfica del documento. Line-height 1.5 en los tres niveles. */
+  --text-display: 3rem;
+  --text-display--line-height: 1.5;
+  --text-display--font-weight: 700;
+  --text-heading: 2rem;
+  --text-heading--line-height: 1.5;
+  --text-heading--font-weight: 600;
+
+  /* Easing de marca: el `ease` del documento. Las quint se reservan para el
+     feedback inmediato, donde 400ms se sentiría lento. */
+  --ease-brand: ease;
   --ease-out-quint: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out-quint: cubic-bezier(0.77, 0, 0.175, 1);
 }
 
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  /*
+   * Regla de forma (una sola, aplicada en todo el producto):
+   *   superficies (tarjetas, diálogos, hojas) 8px
+   *   controles (botones, inputs, selects)    5px  <- el radio base del sistema
+   *   marcas pequeñas (checks, chips)         3px
+   *   avatares y puntos                       círculo completo
+   */
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 3px);
+  --radius-xl: calc(var(--radius) + 3px);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-brand: var(--brand);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
@@ -52,72 +85,95 @@
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.141 0.005 285.823);
+  /* 5px. Todo el resto de la escala se deriva de aquí. */
+  --radius: 0.3125rem;
+
+  /* Duraciones del documento: las tres son iguales a propósito, para que
+     ninguna transición sorprenda. Se usan en revelados y cambios de estado
+     de superficie, no en hover de botones. */
+  --motion-fast: 400ms;
+  --motion-base: 400ms;
+  --motion-slow: 400ms;
+
+  /* #8e8ea0 exacto. Vive en anillos de foco, bordes activos y datos. */
+  --brand: oklch(0.632 0.027 285);
+
+  --background: oklch(0.988 0.002 285);
+  --foreground: oklch(0.19 0.012 285);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.141 0.005 285.823);
+  --card-foreground: oklch(0.19 0.012 285);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.141 0.005 285.823);
-  --primary: oklch(0.21 0.006 285.885);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.967 0.001 286.375);
-  --secondary-foreground: oklch(0.21 0.006 285.885);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.21 0.006 285.885);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.705 0.015 286.067);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.141 0.005 285.823);
-  --sidebar-primary: oklch(0.21 0.006 285.885);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.967 0.001 286.375);
-  --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
-  --sidebar-border: oklch(0.92 0.004 286.32);
-  --sidebar-ring: oklch(0.705 0.015 286.067);
+  --popover-foreground: oklch(0.19 0.012 285);
+  /* #8e8ea0 oscurecido: 5.2:1 con texto blanco. */
+  --primary: oklch(0.46 0.033 285);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.958 0.004 285);
+  --secondary-foreground: oklch(0.28 0.014 285);
+  --muted: oklch(0.958 0.004 285);
+  /* 4.5:1 sobre el fondo: el gris de marca, apenas profundizado. */
+  --muted-foreground: oklch(0.495 0.026 285);
+  --accent: oklch(0.941 0.008 285);
+  --accent-foreground: oklch(0.25 0.014 285);
+  --destructive: oklch(0.551 0.203 27.3);
+  --border: oklch(0.911 0.006 285);
+  --input: oklch(0.897 0.007 285);
+  --ring: oklch(0.632 0.027 285);
+
+  /* Rampa monocroma en el tono de marca. Las categorías traen su propio color
+     desde la base de datos; esta rampa cubre series sin color propio. */
+  --chart-1: oklch(0.46 0.033 285);
+  --chart-2: oklch(0.575 0.031 288);
+  --chart-3: oklch(0.678 0.027 283);
+  --chart-4: oklch(0.775 0.021 288);
+  --chart-5: oklch(0.862 0.014 285);
+
+  --sidebar: oklch(0.968 0.003 285);
+  --sidebar-foreground: oklch(0.19 0.012 285);
+  --sidebar-primary: oklch(0.46 0.033 285);
+  --sidebar-primary-foreground: oklch(0.99 0 0);
+  --sidebar-accent: oklch(0.925 0.009 285);
+  --sidebar-accent-foreground: oklch(0.22 0.014 285);
+  --sidebar-border: oklch(0.905 0.006 285);
+  --sidebar-ring: oklch(0.632 0.027 285);
 }
 
 .dark {
-  --background: oklch(0.141 0.005 285.823);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.21 0.006 285.885);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.21 0.006 285.885);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.92 0.004 286.32);
-  --primary-foreground: oklch(0.21 0.006 285.885);
-  --secondary: oklch(0.274 0.006 286.033);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.274 0.006 286.033);
-  --muted-foreground: oklch(0.705 0.015 286.067);
-  --accent: oklch(0.274 0.006 286.033);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
+  --brand: oklch(0.7 0.03 285);
+
+  --background: oklch(0.178 0.008 285);
+  --foreground: oklch(0.955 0.003 285);
+  --card: oklch(0.222 0.009 285);
+  --card-foreground: oklch(0.955 0.003 285);
+  --popover: oklch(0.222 0.009 285);
+  --popover-foreground: oklch(0.955 0.003 285);
+  /* En oscuro el relleno sube y el texto encima baja: 6.8:1. */
+  --primary: oklch(0.745 0.032 285);
+  --primary-foreground: oklch(0.19 0.012 285);
+  --secondary: oklch(0.278 0.009 285);
+  --secondary-foreground: oklch(0.955 0.003 285);
+  --muted: oklch(0.278 0.009 285);
+  --muted-foreground: oklch(0.735 0.024 285);
+  --accent: oklch(0.3 0.012 285);
+  --accent-foreground: oklch(0.965 0.003 285);
+  --destructive: oklch(0.68 0.19 25);
   --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.552 0.016 285.938);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.21 0.006 285.885);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.274 0.006 286.033);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.7 0.03 285);
+
+  --chart-1: oklch(0.8 0.028 285);
+  --chart-2: oklch(0.705 0.031 288);
+  --chart-3: oklch(0.615 0.03 283);
+  --chart-4: oklch(0.52 0.028 288);
+  --chart-5: oklch(0.42 0.024 285);
+
+  --sidebar: oklch(0.2 0.008 285);
+  --sidebar-foreground: oklch(0.955 0.003 285);
+  --sidebar-primary: oklch(0.745 0.032 285);
+  --sidebar-primary-foreground: oklch(0.19 0.012 285);
+  --sidebar-accent: oklch(0.3 0.012 285);
+  --sidebar-accent-foreground: oklch(0.965 0.003 285);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.552 0.016 285.938);
+  --sidebar-ring: oklch(0.7 0.03 285);
 }
 
 @layer base {
@@ -126,6 +182,20 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* 16px / 1.5 es el cuerpo del sistema. */
+    line-height: 1.5;
+  }
+}
+
+@layer components {
+  /*
+   * El sistema no usa sombras: la jerarquía viene del borde y del fondo.
+   * `surface` es el contenedor por defecto de la plataforma.
+   */
+  .surface {
+    background-color: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
   }
 }
 
@@ -146,6 +216,25 @@
   }
   .dark .image-outline {
     outline-color: oklch(1 0 0 / 0.1);
+  }
+
+  /*
+   * Revelado de superficie con el tempo del sistema (400ms ease). Para
+   * secciones y paneles que entran, no para hover: ahí 400ms arrastra.
+   */
+  @media (prefers-reduced-motion: no-preference) {
+    .surface-enter {
+      opacity: 1;
+      translate: 0 0;
+      transition:
+        opacity var(--motion-base) var(--ease-brand),
+        translate var(--motion-base) var(--ease-brand);
+
+      @starting-style {
+        opacity: 0;
+        translate: 0 8px;
+      }
+    }
   }
 
   /*
