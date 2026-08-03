@@ -2,6 +2,7 @@ import type { Category } from "@prisma/client";
 import { z } from "zod";
 
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
+import { periodInput, resolvePeriod } from "~/server/api/period";
 
 export const useExpenses = createTRPCRouter({
   create: publicProcedure
@@ -49,27 +50,16 @@ export const useExpenses = createTRPCRouter({
       }
     }),
   getAll: publicProcedure
-    .input(
-      z.object({
-        month: z.number().optional(),
-        year: z.number().optional(),
-        categoryId: z.string().optional(),
-      }),
-    )
+    .input(periodInput.extend({ categoryId: z.string().optional() }))
     .query(async ({ input, ctx }) => {
-      const { month, year, categoryId } = input;
-      const currentDate = new Date();
-      const targetMonth = month ?? currentDate.getMonth();
-      const targetYear = year ?? currentDate.getFullYear();
+      const { categoryId } = input;
+      const { from, to } = await resolvePeriod(ctx.db, input);
 
       try {
         const expenses = await ctx.db.expense.findMany({
           where: {
             categoryId,
-            date: {
-              gte: new Date(targetYear, targetMonth, 1),
-              lt: new Date(targetYear, targetMonth + 1, 1),
-            },
+            date: { gte: from, lt: to },
           },
           include: {
             category: true,
@@ -180,26 +170,15 @@ export const useExpenses = createTRPCRouter({
       }
     }),
 
-  getMonthlyStats: publicProcedure
-    .input(
-      z.object({
-        month: z.number().optional(),
-        year: z.number().optional(),
-      }),
-    )
+  getPeriodStats: publicProcedure
+    .input(periodInput)
     .query(async ({ input, ctx }) => {
-      const { month, year } = input;
-      const currentDate = new Date();
-      const targetMonth = month ?? currentDate.getMonth();
-      const targetYear = year ?? currentDate.getFullYear();
+      const { from, to } = await resolvePeriod(ctx.db, input);
 
       try {
         const expenses = await ctx.db.expense.findMany({
           where: {
-            date: {
-              gte: new Date(targetYear, targetMonth, 1),
-              lt: new Date(targetYear, targetMonth + 1, 1),
-            },
+            date: { gte: from, lt: to },
           },
           include: {
             category: true,
@@ -245,7 +224,7 @@ export const useExpenses = createTRPCRouter({
           },
           status: 200,
           error: null,
-          message: "Monthly stats fetched successfully",
+          message: "Period stats fetched successfully",
         };
       } catch (error) {
         console.error(error);
@@ -253,7 +232,7 @@ export const useExpenses = createTRPCRouter({
           result: null,
           status: 500,
           error: error,
-          message: "Monthly stats fetching failed",
+          message: "Period stats fetching failed",
         };
       }
     }),

@@ -1,19 +1,20 @@
 "use client";
 
-import type React from "react";
+import { useMemo, useState } from "react";
+import { Plus, Receipt, Search, SlidersHorizontal } from "lucide-react";
 
-import { useState } from "react";
+import { EmptyState } from "~/components/common/empty-state";
+import { MonthSwitcher } from "~/components/common/month-switcher";
+import { StatCard } from "~/components/common/stat-card";
+import { useExpenseDialog } from "~/components/expenses/expense-dialog-provider";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "~/components/ui/card";
+  ExpenseList,
+  ExpenseListSkeleton,
+} from "~/components/expenses/expense-list";
+import { usePeriod } from "~/components/providers/period-provider";
 import { Button } from "~/components/ui/button";
+import { Card, CardContent } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
-import { Textarea } from "~/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -21,239 +22,153 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
-import { Calendar } from "~/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "~/components/ui/popover";
-import { CalendarIcon, ArrowLeft } from "lucide-react";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
-import { cn } from "~/lib/utils";
+import { useAppSettings } from "~/hooks/use-app-settings";
 import { api } from "~/trpc/react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { toast } from "sonner";
 
-export default function NewExpensePage() {
-  const [formData, setFormData] = useState({
-    amount: "",
-    description: "",
-    categoryId: "",
-    date: new Date(),
-  });
+const ALL_CATEGORIES = "all";
 
-  const router = useRouter();
+export default function ExpensesPage() {
+  const { from, to, label } = usePeriod();
+  const { formatAmount } = useAppSettings();
+  const { openCreate } = useExpenseDialog();
 
-  const { data: categories, isLoading: categoriesLoading } =
-    api.useCategories.getAll.useQuery();
-  const createExpense = api.useExpenses.create.useMutation({
-    onSuccess: () => {
-      toast.success("Gasto agregado", {
-        description: "El gasto se ha registrado exitosamente.",
-      });
-      router.push("/");
+  const [search, setSearch] = useState("");
+  const [categoryId, setCategoryId] = useState<string>(ALL_CATEGORIES);
+
+  const { data: categoriesResponse } = api.useCategories.getAll.useQuery();
+  const categories = categoriesResponse?.result ?? [];
+
+  const { data: expensesResponse, isLoading } = api.useExpenses.getAll.useQuery(
+    {
+      from,
+      to,
+      categoryId: categoryId === ALL_CATEGORIES ? undefined : categoryId,
     },
-    onError: (error) => {
-      toast.error("Error al agregar gasto", {
-        description: "Hubo un problema al agregar el gasto.",
-      });
-    },
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!formData.amount || !formData.description || !formData.categoryId) {
-      toast.error("Campos requeridos", {
-        description: "Por favor completa todos los campos obligatorios.",
-      });
-      return;
-    }
-
-    createExpense.mutate({
-      amount: Number.parseFloat(formData.amount),
-      description: formData.description,
-      categoryId: formData.categoryId,
-      date: formData.date,
-    });
-  };
-
-  const selectedCategory = categories?.result?.find(
-    (cat) => cat.id === formData.categoryId,
   );
 
-  if (categoriesLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="border-primary h-32 w-32 animate-spin rounded-full border-b-2"></div>
-      </div>
+  const expenses = useMemo(
+    () => expensesResponse?.result ?? [],
+    [expensesResponse],
+  );
+
+  const filtered = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return expenses;
+
+    return expenses.filter(
+      (expense) =>
+        expense.description.toLowerCase().includes(query) ||
+        expense.category.name.toLowerCase().includes(query),
     );
-  }
+  }, [expenses, search]);
+
+  const total = filtered.reduce((sum, expense) => sum + expense.amount, 0);
+  const average = filtered.length ? total / filtered.length : 0;
+  const hasFilters = search.trim() !== "" || categoryId !== ALL_CATEGORIES;
 
   return (
-    <div className="flex-1 space-y-4 p-4 pt-6 md:p-8">
-      <div className="mx-auto max-w-2xl">
-        <Card>
-          <CardHeader>
-            <CardTitle>Agregar Nuevo Gasto</CardTitle>
-            <CardDescription>
-              Registra un nuevo gasto en tu presupuesto mensual
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="amount">Monto *</Label>
-                  <Input
-                    id="amount"
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={formData.amount}
-                    onChange={(e) =>
-                      setFormData({ ...formData, amount: e.target.value })
-                    }
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="category">Categoría *</Label>
-                  <Select
-                    value={formData.categoryId}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, categoryId: value })
-                    }
-                    required
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecciona una categoría">
-                        {selectedCategory && (
-                          <div className="flex items-center space-x-2">
-                            <span>{selectedCategory.icon}</span>
-                            <span>{selectedCategory.name}</span>
-                          </div>
-                        )}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories?.result?.map((category) => (
-                        <SelectItem key={category.id} value={category.id}>
-                          <div className="flex items-center space-x-2">
-                            <span>{category.icon}</span>
-                            <span>{category.name}</span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="description">Descripción *</Label>
-                <Textarea
-                  id="description"
-                  placeholder="Describe el gasto..."
-                  value={formData.description}
-                  onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
-                  }
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Fecha</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !formData.date && "text-muted-foreground",
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {formData.date ? (
-                        format(formData.date, "PPP", { locale: es })
-                      ) : (
-                        <span>Selecciona una fecha</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={formData.date}
-                      onSelect={(date) =>
-                        date && setFormData({ ...formData, date })
-                      }
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              {selectedCategory && (
-                <div className="bg-muted rounded-lg p-4">
-                  <div className="mb-2 flex items-center space-x-2">
-                    <div
-                      className="flex h-6 w-6 items-center justify-center rounded-full text-sm text-white"
-                      style={{ backgroundColor: selectedCategory.color }}
-                    >
-                      {selectedCategory.icon}
-                    </div>
-                    <span className="font-medium">{selectedCategory.name}</span>
-                  </div>
-                  {selectedCategory.budget && (
-                    <div className="text-muted-foreground text-sm">
-                      Presupuesto mensual: ${selectedCategory.budget.toFixed(2)}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="flex space-x-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => router.push("/")}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  type="submit"
-                  className="flex-1"
-                  disabled={createExpense.isPending}
-                >
-                  {createExpense.isPending ? "Agregando..." : "Agregar Gasto"}
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-
-        {categories?.result && categories.result.length === 0 && (
-          <Card className="mt-4">
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <p className="text-muted-foreground mb-4">
-                  No tienes categorías creadas. Crea una categoría primero para
-                  poder agregar gastos.
-                </p>
-                <Button asChild>
-                  <Link href="/categories">Crear Categoría</Link>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <MonthSwitcher />
+        <Button onClick={openCreate} className="sm:w-auto">
+          <Plus className="mr-1 size-4" />
+          Nuevo gasto
+        </Button>
       </div>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <StatCard
+          title={`Total de ${label.toLowerCase()}`}
+          value={formatAmount(total)}
+          hint={hasFilters ? "Con los filtros aplicados" : "Todo el periodo"}
+          icon={Receipt}
+          isLoading={isLoading}
+        />
+        <StatCard
+          title="Transacciones"
+          value={String(filtered.length)}
+          hint="Movimientos registrados"
+          icon={SlidersHorizontal}
+          isLoading={isLoading}
+        />
+        <StatCard
+          title="Promedio por gasto"
+          value={formatAmount(average)}
+          hint="Monto medio del periodo"
+          icon={Receipt}
+          isLoading={isLoading}
+        />
+      </div>
+
+      <Card>
+        <CardContent className="space-y-4">
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="relative flex-1">
+              <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Buscar por descripción o categoría..."
+                className="pl-9"
+                aria-label="Buscar gastos"
+              />
+            </div>
+            <Select value={categoryId} onValueChange={setCategoryId}>
+              <SelectTrigger className="sm:w-[220px]" aria-label="Categoría">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_CATEGORIES}>
+                  Todas las categorías
+                </SelectItem>
+                {categories.map((category) => (
+                  <SelectItem key={category.id} value={category.id}>
+                    <span className="flex items-center gap-2">
+                      <span>{category.icon}</span>
+                      <span>{category.name}</span>
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {isLoading ? (
+            <ExpenseListSkeleton />
+          ) : filtered.length > 0 ? (
+            <ExpenseList expenses={filtered} />
+          ) : hasFilters ? (
+            <EmptyState
+              icon={Search}
+              title="Sin resultados"
+              description="Ningún gasto coincide con los filtros de este periodo."
+              action={
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSearch("");
+                    setCategoryId(ALL_CATEGORIES);
+                  }}
+                >
+                  Limpiar filtros
+                </Button>
+              }
+            />
+          ) : (
+            <EmptyState
+              icon={Receipt}
+              title={`Sin gastos en ${label.toLowerCase()}`}
+              description="Registra tu primer movimiento del periodo para verlo aquí."
+              action={
+                <Button onClick={openCreate}>
+                  <Plus className="mr-1 size-4" />
+                  Registrar gasto
+                </Button>
+              }
+            />
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
