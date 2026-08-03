@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   Receipt,
   Settings,
+  Sparkles,
   Tags,
   type LucideIcon,
 } from "lucide-react";
@@ -23,6 +24,13 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/",
     icon: LayoutDashboard,
     description: "Resumen de tus gastos del periodo",
+  },
+  {
+    title: "Chat",
+    href: "/chat",
+    icon: Sparkles,
+    description: "Sube un ticket y registra el gasto sin formularios",
+    matchNested: true,
   },
   {
     title: "Gastos",
@@ -54,7 +62,7 @@ export const NAV_ITEMS: NavItem[] = [
   },
 ];
 
-/** Rutas destacadas en la barra inferior móvil (la quinta es "Más"). */
+/** Rutas de la barra inferior móvil; configuración vive sólo en el sidebar. */
 export const MOBILE_NAV_ITEMS = NAV_ITEMS.filter(
   (item) => item.href !== "/settings",
 );

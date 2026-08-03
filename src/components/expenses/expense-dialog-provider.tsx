@@ -21,6 +21,7 @@ import { Button } from "~/components/ui/button";
 import { ResponsiveModal } from "~/components/ui/responsive-modal";
 import { Skeleton } from "~/components/ui/skeleton";
 import type { ExpenseWithCategory } from "~/lib/api-types";
+import { formatExpenseTitle } from "~/lib/format";
 import { api } from "~/trpc/react";
 
 type ExpenseDialogContextValue = {
@@ -169,7 +170,7 @@ export function ExpenseDialogProvider({
               editing
                 ? {
                     amount: String(editing.amount),
-                    description: editing.description,
+                    description: editing.description ?? "",
                     categoryId: editing.categoryId,
                     date: new Date(editing.date),
                     image: editing.image,
@@ -190,7 +191,11 @@ export function ExpenseDialogProvider({
         title="¿Eliminar este gasto?"
         description={
           <>
-            Se eliminará <strong>{pendingDelete?.description}</strong> de forma
+            Se eliminará{" "}
+            <strong>
+              {pendingDelete ? formatExpenseTitle(pendingDelete) : ""}
+            </strong>{" "}
+            de forma
             permanente. Esta acción no se puede deshacer.
           </>
         }

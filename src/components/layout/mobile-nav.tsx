@@ -29,7 +29,12 @@ export function MobileNav() {
       </Button>
 
       <nav className="bg-background/95 pb-safe fixed inset-x-0 bottom-0 z-40 border-t backdrop-blur md:hidden">
-        <ul className="grid grid-cols-4">
+        <ul
+          className="grid"
+          style={{
+            gridTemplateColumns: `repeat(${MOBILE_NAV_ITEMS.length}, minmax(0, 1fr))`,
+          }}
+        >
           {MOBILE_NAV_ITEMS.map((item) => {
             const active = isActiveRoute(item, pathname);
             return (

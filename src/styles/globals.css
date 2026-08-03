@@ -6,6 +6,11 @@
 @theme {
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif,
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+
+  /* Las curvas nativas de CSS son demasiado suaves: estas dan el arranque seco
+     que hace que la interfaz se sienta respondona. */
+  --ease-out-quint: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out-quint: cubic-bezier(0.77, 0, 0.175, 1);
 }
 
 @theme inline {
@@ -131,5 +136,59 @@
   }
   .mb-safe {
     margin-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Contorno neutro para fotos: negro puro en claro y blanco puro en oscuro.
+     Un gris tintado recogería el color del fondo y se leería como suciedad. */
+  .image-outline {
+    outline: 1px solid oklch(0 0 0 / 0.1);
+    outline-offset: -1px;
+  }
+  .dark .image-outline {
+    outline-color: oklch(1 0 0 / 0.1);
+  }
+
+  /*
+   * Entrada de los mensajes del chat. `@starting-style` anima sólo el primer
+   * pintado, así que los fragmentos que ya están en pantalla no re-animan
+   * cuando llega texto nuevo del stream.
+   */
+  @media (prefers-reduced-motion: no-preference) {
+    .chat-enter {
+      opacity: 1;
+      translate: 0 0;
+      transition:
+        opacity 220ms var(--ease-out-quint),
+        translate 220ms var(--ease-out-quint);
+
+      @starting-style {
+        opacity: 0;
+        translate: 0 6px;
+      }
+    }
+  }
+
+  @keyframes chat-thinking-dot {
+    0%,
+    70%,
+    100% {
+      opacity: 0.2;
+      translate: 0 0;
+    }
+    35% {
+      opacity: 1;
+      translate: 0 -2px;
+    }
+  }
+
+  .chat-thinking-dot {
+    animation: chat-thinking-dot 1.3s var(--ease-in-out-quint) infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .chat-thinking-dot {
+      animation: none;
+      opacity: 0.55;
+    }
   }
 }

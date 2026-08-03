@@ -25,7 +25,8 @@ model Category {
 model Expense {
     id          String   @id @default(cuid())
     amount      Float
-    description String
+    /// Nota opcional del gasto. Null cuando basta con la categoría.
+    description String?
     /// URL pública del ticket en Vercel Blob. Null si el gasto no tiene foto.
     image       String?
     date        DateTime @default(now())

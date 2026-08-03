@@ -17,7 +17,11 @@ import {
 import { Skeleton } from "~/components/ui/skeleton";
 import { useAppSettings } from "~/hooks/use-app-settings";
 import type { ExpenseWithCategory } from "~/lib/api-types";
-import { formatExpenseDate } from "~/lib/format";
+import {
+  formatExpenseDate,
+  formatExpenseTitle,
+  hasExpenseDescription,
+} from "~/lib/format";
 
 /** Agrupa los gastos por día conservando el orden descendente del servidor. */
 function groupByDay(expenses: ExpenseWithCategory[]) {
@@ -57,6 +61,7 @@ export function ExpenseRow({ expense }: { expense: ExpenseWithCategory }) {
   const { formatAmount } = useAppSettings();
   const { openEdit, requestDelete } = useExpenseDialog();
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
+  const title = formatExpenseTitle(expense);
 
   return (
     <li className="hover:bg-accent/50 flex items-center gap-3 rounded-lg border p-3 transition-colors">
@@ -66,17 +71,19 @@ export function ExpenseRow({ expense }: { expense: ExpenseWithCategory }) {
       />
 
       <div className="min-w-0 flex-1">
-        <p className="truncate font-medium">{expense.description}</p>
-        <p className="text-muted-foreground truncate text-sm">
-          {expense.category.name}
-        </p>
+        <p className="truncate font-medium">{title}</p>
+        {hasExpenseDescription(expense) ? (
+          <p className="text-muted-foreground truncate text-sm">
+            {expense.category.name}
+          </p>
+        ) : null}
       </div>
 
       {expense.image ? (
         <button
           type="button"
           onClick={() => setIsReceiptOpen(true)}
-          aria-label={`Ver ticket de ${expense.description}`}
+          aria-label={`Ver ticket de ${title}`}
           className="focus-visible:ring-ring relative size-9 shrink-0 overflow-hidden rounded-md border transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:outline-none"
         >
           <Image
@@ -99,7 +106,7 @@ export function ExpenseRow({ expense }: { expense: ExpenseWithCategory }) {
             variant="ghost"
             size="icon"
             className="shrink-0"
-            aria-label={`Acciones para ${expense.description}`}
+            aria-label={`Acciones para ${title}`}
           >
             <MoreVertical className="size-4" />
           </Button>
@@ -122,7 +129,7 @@ export function ExpenseRow({ expense }: { expense: ExpenseWithCategory }) {
       <ReceiptViewer
         url={isReceiptOpen ? expense.image : null}
         onClose={() => setIsReceiptOpen(false)}
-        title={expense.description}
+        title={title}
       />
     </li>
   );

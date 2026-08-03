@@ -1,0 +1,147 @@
+import {
+  convertToModelMessages,
+  createUIMessageStreamResponse,
+  isStepCount,
+  streamText,
+  toUIMessageStream,
+  type UIMessage,
+} from "ai";
+
+import {
+  DEFAULT_CURRENCY,
+  formatPeriodLabel,
+  getCycleRange,
+} from "~/lib/format";
+import { EXPENSE_TOOL_APPROVAL, expenseTools } from "~/server/ai/tools";
+import { createCaller } from "~/server/api/root";
+import { createTRPCContext } from "~/server/api/trpc";
+
+/** Leer un ticket y encadenar varias tools tarda más que una respuesta normal. */
+export const maxDuration = 60;
+
+/**
+ * Se resuelve por el AI Gateway de Vercel (`provider/modelo`), así que no hace
+ * falta instalar el paquete del proveedor ni manejar su API key: en Vercel basta
+ * con el OIDC del proyecto y en local con `AI_GATEWAY_API_KEY`.
+ */
+const MODEL = "anthropic/claude-sonnet-5";
+
+function toDateInput(date: Date) {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+/**
+ * Los tickets se suben a Blob antes de mandarse, así que el modelo ve la imagen
+ * pero no su URL. La listamos aparte para que pueda adjuntarla al gasto.
+ */
+function collectReceiptUrls(messages: UIMessage[]) {
+  const urls: string[] = [];
+
+  for (const message of messages) {
+    if (message.role !== "user") continue;
+    for (const part of message.parts) {
+      if (
+        part.type === "file" &&
+        part.mediaType?.startsWith("image/") &&
+        part.url.startsWith("http")
+      ) {
+        urls.push(part.url);
+      }
+    }
+  }
+
+  return urls;
+}
+
+/**
+ * El contexto (fecha, ciclo, moneda y categorías) va en las instrucciones para
+ * que el caso común —foto de ticket a gasto registrado— no gaste un turno extra
+ * consultando tools.
+ */
+async function buildInstructions(messages: UIMessage[]) {
+  const caller = createCaller(await createTRPCContext({ headers: new Headers() }));
+
+  const [settingsResponse, categoriesResponse] = await Promise.all([
+    caller.useSettings.get(),
+    caller.useCategories.getAll(),
+  ]);
+
+  const settings = settingsResponse.result;
+  const currency = settings?.currency ?? DEFAULT_CURRENCY;
+  const cycleStartDay = settings?.cycleStartDay ?? 1;
+  const cycle = getCycleRange(cycleStartDay);
+
+  const categories = categoriesResponse.result ?? [];
+  const categoryLines = categories.length
+    ? categories
+        .map(
+          (category) =>
+            `- ${category.icon} ${category.name} — id: ${category.id}${
+              category.budget ? ` — presupuesto ${category.budget}` : ""
+            }`,
+        )
+        .join("\n")
+    : "- (todavía no hay ninguna categoría)";
+
+  const receiptUrls = collectReceiptUrls(messages);
+  const receiptLines = receiptUrls.length
+    ? receiptUrls.map((url, index) => `${index + 1}. ${url}`).join("\n")
+    : "(ninguna)";
+
+  return `Eres el asistente de Zen Expenses, una app personal de gastos. Hablas español de México, de tú, en frases cortas y sin rodeos.
+
+Tu trabajo es que registrar un gasto cueste lo mínimo posible. El caso estrella: el usuario manda la foto de un ticket y tú deduces todo.
+
+## Cómo leer un ticket
+- El monto es el TOTAL pagado (incluye impuestos y propina), no el subtotal ni una línea suelta.
+- La descripción es el nombre del comercio, tal cual aparece en el ticket. Si además es evidente qué se compró, añádelo corto: "Oxxo · café y pan".
+- La fecha viene impresa en el ticket; si no se ve, usa hoy.
+- Elige la categoría existente que mejor encaje. No inventes ids.
+- Si el ticket está borroso o el total es ambiguo, di qué no pudiste leer y pregunta sólo por eso.
+
+## Cómo actuar
+- Cuando tengas los datos, llama directo a la tool. NO preguntes "¿lo registro?": crear, editar y borrar ya le piden confirmación al usuario con un botón, así que preguntar antes duplica el trabajo.
+- Después de que una tool corra bien, contesta con una línea. La tarjeta ya muestra monto, categoría y fecha: no los repitas.
+- Para editar o borrar, primero busca el gasto con listExpenses y usa el id real.
+- Consulta con las tools antes de afirmar números. Nunca inventes montos ni totales.
+- Los montos van como número puro (1234.5), sin símbolos ni separadores de miles.
+- Si no existe ninguna categoría que encaje, propón crear una y usa createCategory.
+
+## Contexto de hoy
+- Fecha de hoy: ${toDateInput(new Date())}.
+- Moneda configurada: ${currency}. Los montos que leas en el ticket ya están en esa moneda salvo que diga otra cosa.
+- Ciclo de presupuesto vigente: ${formatPeriodLabel(cycleStartDay, cycle.start, cycle.end)} (del ${toDateInput(cycle.start)} al ${toDateInput(new Date(cycle.end.getTime() - 86400000))}), quedan ${cycle.daysLeft} días.
+
+## Categorías disponibles
+${categoryLines}
+
+## Tickets adjuntos en esta conversación
+Las imágenes que ves llegaron en este orden. Al registrar el gasto de una foto, pasa su URL en el campo \`image\` para que quede guardada:
+${receiptLines}`;
+}
+
+export async function POST(req: Request) {
+  const { messages }: { messages: UIMessage[] } = await req.json();
+
+  const result = streamText({
+    model: MODEL,
+    instructions: await buildInstructions(messages),
+    messages: await convertToModelMessages(messages),
+    tools: expenseTools,
+    toolApproval: EXPENSE_TOOL_APPROVAL,
+    stopWhen: isStepCount(8),
+  });
+
+  return createUIMessageStreamResponse({
+    stream: toUIMessageStream({
+      stream: result.stream,
+      onError: (error) => {
+        console.error("[api/chat]", error);
+        return error instanceof Error
+          ? error.message
+          : "Algo salió mal al generar la respuesta.";
+      },
+    }),
+  });
+}

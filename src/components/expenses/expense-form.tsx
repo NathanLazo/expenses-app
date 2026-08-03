@@ -50,11 +50,7 @@ const expenseFormSchema = z.object({
     .refine((value) => Number.parseFloat(value) > 0, {
       message: "El monto debe ser mayor a 0",
     }),
-  description: z
-    .string()
-    .trim()
-    .min(1, "Describe brevemente el gasto")
-    .max(120, "Máximo 120 caracteres"),
+  description: z.string().trim().max(120, "Máximo 120 caracteres"),
   categoryId: z.string().min(1, "Selecciona una categoría"),
   date: z.date(),
   image: z.string().url().nullable(),
@@ -64,7 +60,7 @@ export type ExpenseFormValues = z.infer<typeof expenseFormSchema>;
 
 export type ExpenseSubmitValues = {
   amount: number;
-  description: string;
+  description: string | null;
   categoryId: string;
   date: Date;
   image: string | null;
@@ -126,7 +122,7 @@ export function ExpenseForm({
   const handleSubmit = form.handleSubmit((values) =>
     onSubmit({
       amount: Number.parseFloat(values.amount),
-      description: values.description.trim(),
+      description: values.description.trim() || null,
       categoryId: values.categoryId,
       date: values.date,
       image: values.image,
@@ -203,6 +199,9 @@ export function ExpenseForm({
                   className="resize-none"
                 />
               </FormControl>
+              <FormDescription>
+                Opcional. Si la dejas vacía verás el nombre de la categoría.
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}

@@ -57,7 +57,7 @@ export default function ExpensesPage() {
 
     return expenses.filter(
       (expense) =>
-        expense.description.toLowerCase().includes(query) ||
+        expense.description?.toLowerCase().includes(query) ||
         expense.category.name.toLowerCase().includes(query),
     );
   }, [expenses, search]);

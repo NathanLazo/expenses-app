@@ -21,6 +21,16 @@ export const env = createEnv({
      * claro) en vez de impedir que arranque.
      */
     BLOB_READ_WRITE_TOKEN: z.string().min(1).optional(),
+    /**
+     * Key del AI Gateway de Vercel, que es por donde el chat habla con el
+     * modelo. En un deploy de Vercel no hace falta (el proyecto se autentica
+     * con OIDC); en local se obtiene con `vercel env pull .env` o creando una
+     * key en el dashboard.
+     *
+     * Opcional a propósito, igual que el token de Blob: sin ella la app
+     * arranca y sólo falla la ruta del chat.
+     */
+    AI_GATEWAY_API_KEY: z.string().min(1).optional(),
   },
 
   /**
@@ -40,6 +50,7 @@ export const env = createEnv({
     DATABASE_URL: process.env.DATABASE_URL,
     NODE_ENV: process.env.NODE_ENV,
     BLOB_READ_WRITE_TOKEN: process.env.BLOB_READ_WRITE_TOKEN,
+    AI_GATEWAY_API_KEY: process.env.AI_GATEWAY_API_KEY,
     // NEXT_PUBLIC_CLIENTVAR: process.env.NEXT_PUBLIC_CLIENTVAR,
   },
   /**

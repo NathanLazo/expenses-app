@@ -53,6 +53,22 @@ export function formatCompactCurrency(
   }).format(amount);
 }
 
+/**
+ * Título visible de un gasto. La descripción es opcional, así que cuando falta
+ * se usa el nombre de la categoría para no dejar la fila sin texto.
+ */
+export function formatExpenseTitle(expense: {
+  description: string | null;
+  category: { name: string };
+}) {
+  return expense.description?.trim() || expense.category.name;
+}
+
+/** True cuando el gasto trae nota propia (y no el nombre de la categoría). */
+export function hasExpenseDescription(expense: { description: string | null }) {
+  return Boolean(expense.description?.trim());
+}
+
 export function formatPercent(value: number) {
   return `${value.toFixed(value < 10 ? 1 : 0)}%`;
 }

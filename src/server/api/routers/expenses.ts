@@ -10,7 +10,7 @@ export const useExpenses = createTRPCRouter({
     .input(
       z.object({
         amount: z.number(),
-        description: z.string(),
+        description: z.string().nullish(),
         date: z.date(),
         categoryId: z.string(),
         image: z.string().url().nullable().optional(),
@@ -21,7 +21,7 @@ export const useExpenses = createTRPCRouter({
         const expense = await ctx.db.expense.create({
           data: {
             amount: input.amount,
-            description: input.description,
+            description: input.description?.trim() ?? null,
             date: input.date,
             categoryId: input.categoryId,
             image: input.image ?? null,
@@ -99,7 +99,7 @@ export const useExpenses = createTRPCRouter({
       z.object({
         id: z.string(),
         amount: z.number().positive().optional(),
-        description: z.string().min(1).optional(),
+        description: z.string().nullish(),
         categoryId: z.string().optional(),
         date: z.date().optional(),
         image: z.string().url().nullable().optional(),
@@ -107,7 +107,14 @@ export const useExpenses = createTRPCRouter({
     )
     .mutation(async ({ input, ctx }) => {
       try {
-        const { id, ...data } = input;
+        const { id, description, ...rest } = input;
+
+        // Sin descripción el campo se limpia; si no viene en el input, se deja
+        // como estaba.
+        const data =
+          description === undefined
+            ? rest
+            : { ...rest, description: description?.trim() ?? null };
 
         // Si el ticket cambia hay que soltar el anterior, si no queda huérfano
         // en el store para siempre.

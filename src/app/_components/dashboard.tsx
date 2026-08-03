@@ -35,7 +35,12 @@ import {
 import { Progress } from "~/components/ui/progress";
 import { Skeleton } from "~/components/ui/skeleton";
 import { useAppSettings } from "~/hooks/use-app-settings";
-import { formatExpenseDate, formatPercent } from "~/lib/format";
+import {
+  formatExpenseDate,
+  formatExpenseTitle,
+  formatPercent,
+  hasExpenseDescription,
+} from "~/lib/format";
 import { api } from "~/trpc/react";
 
 export default function Dashboard() {
@@ -279,10 +284,12 @@ export default function Dashboard() {
                     />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">
-                        {expense.description}
+                        {formatExpenseTitle(expense)}
                       </p>
                       <p className="text-muted-foreground flex items-center gap-1 truncate text-xs">
-                        {expense.category.name} ·{" "}
+                        {hasExpenseDescription(expense)
+                          ? `${expense.category.name} · `
+                          : ""}
                         {formatExpenseDate(expense.date)}
                         {expense.image ? (
                           <Receipt
