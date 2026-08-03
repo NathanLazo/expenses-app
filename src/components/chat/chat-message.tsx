@@ -74,8 +74,10 @@ export function ChatMessage({
       .join("\n")
       .trim();
 
-    const images = message.parts.filter(
-      (part) => part.type === "file" && part.mediaType?.startsWith("image/"),
+    // `flatMap` en vez de `filter` porque sólo así TypeScript se queda con el
+    // tipo de la parte de archivo (y con su `url`).
+    const images = message.parts.flatMap((part) =>
+      part.type === "file" && part.mediaType.startsWith("image/") ? [part] : [],
     );
 
     return (

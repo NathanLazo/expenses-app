@@ -125,10 +125,14 @@ export const expenseTools = {
       );
 
       if (!response.result) {
-        return { error: "No se pudo calcular el resumen del periodo." };
+        return {
+          ok: false as const,
+          error: "No se pudo calcular el resumen del periodo.",
+        };
       }
 
       return {
+        ok: true as const,
         totalSpent: response.result.totalSpent,
         expenseCount: response.result.expenseCount,
         byCategory: response.result.categoryStats

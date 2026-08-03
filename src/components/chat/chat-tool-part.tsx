@@ -265,7 +265,7 @@ export function ChatToolPart({ part, onRespondToApproval }: ChatToolPartProps) {
           <ToolStatus icon={PieChart} label="Sacando cuentas del periodo…" pending />
         );
       }
-      if ("error" in part.output) {
+      if (!part.output.ok) {
         return <ToolError message={part.output.error} />;
       }
       return <PeriodSummaryCard summary={part.output} />;

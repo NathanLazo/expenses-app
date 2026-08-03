@@ -6,6 +6,12 @@
       "runtimeExecutable": "cmd",
       "runtimeArgs": ["/c", "set SKIP_ENV_VALIDATION=1 && pnpm dev"],
       "port": 3000
+    },
+    {
+      "name": "expenses-dev-3001",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "set SKIP_ENV_VALIDATION=1 && pnpm dev -p 3001"],
+      "port": 3001
     }
   ]
 }
