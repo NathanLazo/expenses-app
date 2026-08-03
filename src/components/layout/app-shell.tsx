@@ -21,7 +21,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               repiten en todas las rutas. */}
           <a
             href="#contenido"
-            className="bg-background focus-visible:ring-ring sr-only focus-visible:fixed focus-visible:top-3 focus-visible:left-3 focus-visible:z-50 focus-visible:not-sr-only focus-visible:rounded-md focus-visible:border focus-visible:px-3 focus-visible:py-2 focus-visible:text-sm focus-visible:font-medium focus-visible:ring-[3px]"
+            className="bg-background focus:ring-ring fixed -top-20 left-3 z-50 rounded-md border px-3 py-2 text-sm font-medium shadow-md transition-[top] duration-150 focus:top-3 focus:ring-[3px] focus:outline-none motion-reduce:transition-none"
           >
             Saltar al contenido
           </a>
