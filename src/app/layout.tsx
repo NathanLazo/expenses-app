@@ -14,7 +14,18 @@ export const metadata: Metadata = {
   },
   description: siteConfig.description,
   applicationName: siteConfig.name,
-  icons: [{ rel: "icon", url: "/favicon.ico" }],
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: siteConfig.name,
+    startupImage: ["/icons/launchericon-512x512.png"],
+  },
+  icons: [
+    { rel: "icon", url: "/favicon.ico" },
+    { rel: "apple-touch-icon", url: "/icons/launchericon-192x192.png" },
+    { rel: "apple-touch-icon", sizes: "144x144", url: "/icons/launchericon-144x144.png" },
+  ],
   openGraph: {
     type: "website",
     siteName: siteConfig.name,

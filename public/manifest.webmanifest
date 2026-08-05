@@ -1,0 +1,82 @@
+{
+    "name": "Zen Expenses",
+    "short_name": "Zen Expenses",
+    "description": "Registra gastos, organízalos por categorías y analiza en qué se va tu dinero cada mes.",
+    "start_url": "/",
+    "display": "standalone",
+    "orientation": "portrait",
+    "background_color": "#0a0a0a",
+    "theme_color": "#0a0a0a",
+    "dir": "ltr",
+    "lang": "es-MX",
+    "scope": "/",
+    "categories": [
+        "finance",
+        "productivity"
+    ],
+    "icons": [
+        {
+            "src": "/icons/launchericon-48x48.png",
+            "sizes": "48x48",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "/icons/launchericon-72x72.png",
+            "sizes": "72x72",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "/icons/launchericon-96x96.png",
+            "sizes": "96x96",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "/icons/launchericon-144x144.png",
+            "sizes": "144x144",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "/icons/launchericon-192x192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/icons/launchericon-512x512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "Nuevo gasto",
+            "short_name": "Gasto",
+            "description": "Registrar un gasto rápidamente",
+            "url": "/expenses?action=new",
+            "icons": [
+                {
+                    "src": "/icons/launchericon-96x96.png",
+                    "sizes": "96x96"
+                }
+            ]
+        },
+        {
+            "name": "Ver reportes",
+            "short_name": "Reportes",
+            "description": "Analizar gastos del mes",
+            "url": "/reports",
+            "icons": [
+                {
+                    "src": "/icons/launchericon-96x96.png",
+                    "sizes": "96x96"
+                }
+            ]
+        }
+    ],
+    "screenshots": []
+}
