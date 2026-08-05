@@ -4,6 +4,7 @@ import { ThemeProvider } from "~/lib/ThemeProvider";
 import { Toaster } from "~/components/ui/sonner";
 import { TooltipProvider } from "~/components/ui/tooltip";
 import { TRPCReactProvider } from "~/trpc/react";
+import { PWAInstallPrompt } from "~/components/pwa-install-prompt";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -20,6 +21,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           closeButton
           containerAriaLabel="Notificaciones"
         />
+        <PWAInstallPrompt />
       </TRPCReactProvider>
     </ThemeProvider>
   );
