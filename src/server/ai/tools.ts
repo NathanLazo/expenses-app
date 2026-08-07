@@ -3,7 +3,13 @@ import "server-only";
 import { tool } from "ai";
 import { z } from "zod";
 
-import { getIncomeTotals } from "~/lib/income";
+import { IncomeKind, PaymentMethod } from "@prisma/client";
+
+import {
+  getIncomeTotals,
+  INCOME_KIND_LABELS,
+  PAYMENT_METHOD_LABELS,
+} from "~/lib/income";
 import { createCaller } from "~/server/api/root";
 import { createTRPCContext } from "~/server/api/trpc";
 
@@ -98,6 +104,11 @@ function toChatIncome(income: {
   description: string | null;
   image: string | null;
   date: Date;
+  kind: IncomeKind;
+  project: string | null;
+  paymentMethod: PaymentMethod | null;
+  clientId: string | null;
+  client?: { name: string } | null;
 }) {
   return {
     id: income.id,
@@ -108,6 +119,17 @@ function toChatIncome(income: {
     description: income.description,
     image: income.image,
     date: toDateInput(new Date(income.date)),
+    kind: income.kind,
+    // La etiqueta va resuelta para que el modelo no tenga que traducir el enum
+    // ni se invente su propia versión en español.
+    kindLabel: INCOME_KIND_LABELS[income.kind],
+    project: income.project,
+    paymentMethod: income.paymentMethod,
+    paymentMethodLabel: income.paymentMethod
+      ? PAYMENT_METHOD_LABELS[income.paymentMethod]
+      : null,
+    clientId: income.clientId,
+    clientName: income.client?.name ?? null,
   };
 }
 
@@ -242,6 +264,13 @@ export const chatTools = {
       "Registra un gasto nuevo. Pasa `image` con la URL del ticket cuando el usuario haya adjuntado una foto, para que quede guardada en el gasto.",
     inputSchema: z.object({
       amount: z.number().positive().describe("Monto total del gasto."),
+      iva: z
+        .number()
+        .nonnegative()
+        .optional()
+        .describe(
+          "IVA acreditable YA INCLUIDO en `amount`, sólo si el gasto está facturado. De un total de 1160 son 160, no 185.60.",
+        ),
       categoryId: z
         .string()
         .describe(
@@ -259,7 +288,7 @@ export const chatTools = {
         .optional()
         .describe("URL de la foto del ticket que adjuntó el usuario."),
     }),
-    execute: async ({ amount, categoryId, date, description, image }) => {
+    execute: async ({ amount, iva, categoryId, date, description, image }) => {
       const { category, available } = await findCategory(categoryId);
 
       if (!category) {
@@ -273,6 +302,7 @@ export const chatTools = {
       const caller = await getCaller();
       const response = await caller.useExpenses.create({
         amount,
+        iva: iva ?? null,
         description: description ?? null,
         date: toLocalDate(date),
         categoryId,
@@ -389,11 +419,17 @@ export const chatTools = {
     inputSchema: z.object({
       ...periodRange,
       search: z.string().optional().describe("Texto a buscar en el concepto."),
+      clientId: z.string().optional(),
+      kind: z.nativeEnum(IncomeKind).optional(),
       limit: z.number().int().min(1).max(50).default(10),
     }),
-    execute: async ({ search, limit, ...range }) => {
+    execute: async ({ search, limit, clientId, kind, ...range }) => {
       const caller = await getCaller();
-      const response = await caller.useIncomes.getAll(resolveRange(range));
+      const response = await caller.useIncomes.getAll({
+        ...resolveRange(range),
+        clientId,
+        kind,
+      });
 
       const query = search?.trim().toLowerCase();
       const incomes = (response.result ?? []).filter((income) => {
@@ -443,8 +479,37 @@ export const chatTools = {
         .url()
         .optional()
         .describe("URL de la foto de la factura que adjuntó el usuario."),
+      clientId: z
+        .string()
+        .optional()
+        .describe("Id de un cliente existente, obtenido con listClients."),
+      kind: z
+        .nativeEnum(IncomeKind)
+        .optional()
+        .describe(
+          "Tipo de ingreso. Si hay ISR retenido casi siempre es HONORARIOS.",
+        ),
+      project: z
+        .string()
+        .max(60)
+        .optional()
+        .describe(
+          "Trabajo al que pertenece el cobro, si el usuario lo nombra.",
+        ),
+      paymentMethod: z.nativeEnum(PaymentMethod).optional(),
     }),
-    execute: async ({ amount, iva, isr, date, description, image }) => {
+    execute: async ({
+      amount,
+      iva,
+      isr,
+      date,
+      description,
+      image,
+      clientId,
+      kind,
+      project,
+      paymentMethod,
+    }) => {
       const caller = await getCaller();
       const response = await caller.useIncomes.create({
         amount,
@@ -453,6 +518,10 @@ export const chatTools = {
         description: description ?? null,
         image: image ?? null,
         date: toLocalDate(date),
+        clientId: clientId ?? null,
+        kind,
+        project: project ?? null,
+        paymentMethod: paymentMethod ?? null,
       });
 
       if (!response.result) {
@@ -473,8 +542,23 @@ export const chatTools = {
       isr: z.number().nonnegative().nullable().optional(),
       date: dateInput.optional(),
       description: z.string().max(120).nullable().optional(),
+      clientId: z.string().nullable().optional(),
+      kind: z.nativeEnum(IncomeKind).optional(),
+      project: z.string().max(60).nullable().optional(),
+      paymentMethod: z.nativeEnum(PaymentMethod).nullable().optional(),
     }),
-    execute: async ({ id, amount, iva, isr, date, description }) => {
+    execute: async ({
+      id,
+      amount,
+      iva,
+      isr,
+      date,
+      description,
+      clientId,
+      kind,
+      project,
+      paymentMethod,
+    }) => {
       const caller = await getCaller();
       const response = await caller.useIncomes.update({
         id,
@@ -483,6 +567,10 @@ export const chatTools = {
         isr,
         date: date ? toLocalDate(date) : undefined,
         description,
+        clientId,
+        kind,
+        project,
+        paymentMethod,
       });
 
       if (!response.result) {
@@ -512,6 +600,161 @@ export const chatTools = {
       }
 
       return { ok: true as const, income: toChatIncome(response.result) };
+    },
+  }),
+
+  /* ------------------------------------------------------------- clientes */
+
+  listClients: tool({
+    description:
+      "Lista los clientes con lo que te dejaron en el periodo. Úsala para obtener el id antes de registrar un ingreso a nombre de alguien.",
+    inputSchema: z.object({}),
+    execute: async () => {
+      const caller = await getCaller();
+      const response = await caller.useClients.getAll();
+
+      return {
+        clients: (response.result ?? []).map((client) => ({
+          id: client.id,
+          name: client.name,
+          icon: client.icon,
+          color: client.color,
+          netThisPeriod: client.periodTotals.net,
+          countThisPeriod: client.periodCount,
+        })),
+      };
+    },
+  }),
+
+  createClient: tool({
+    description:
+      "Crea un cliente. Úsala sólo cuando ninguno de los existentes sea el mismo; revisa antes con listClients para no duplicar.",
+    inputSchema: z.object({
+      name: z.string().min(1).max(60),
+      icon: z.string().default("💼").describe("Un solo emoji."),
+      color: z
+        .string()
+        .regex(/^#[0-9a-fA-F]{6}$/)
+        .default("#3B82F6"),
+    }),
+    execute: async (input) => {
+      const caller = await getCaller();
+      const response = await caller.useClients.create(input);
+
+      if (!response.result) {
+        return { ok: false as const, error: "No se pudo crear el cliente." };
+      }
+
+      return {
+        ok: true as const,
+        client: {
+          id: response.result.id,
+          name: response.result.name,
+          icon: response.result.icon,
+          color: response.result.color,
+        },
+      };
+    },
+  }),
+
+  /* ------------------------------------------------------------- análisis */
+
+  getTrend: tool({
+    description:
+      "Compara varios periodos entre sí: ingreso, gasto y balance de los últimos N ciclos. Úsala para cualquier pregunta de evolución, tendencia o comparación contra meses anteriores.",
+    inputSchema: z.object({
+      count: z
+        .number()
+        .int()
+        .min(1)
+        .max(24)
+        .default(6)
+        .describe("Cuántos ciclos traer, contando hacia atrás."),
+    }),
+    execute: async ({ count }) => {
+      const caller = await getCaller();
+      const response = await caller.useAnalytics.getTrend({ count });
+
+      if (!response.result) {
+        return { ok: false as const, error: response.message };
+      }
+
+      return {
+        ok: true as const,
+        cycles: response.result.cycles.map((cycle) => ({
+          label: cycle.label,
+          from: toDateInput(cycle.from),
+          to: toDateInput(cycle.to),
+          spent: cycle.expenses.total,
+          expenseCount: cycle.expenses.count,
+          incomeNet: cycle.income.net,
+          incomeBase: cycle.income.base,
+          iva: cycle.income.iva,
+          isr: cycle.income.isr,
+          incomeCount: cycle.income.count,
+          balance: cycle.balance,
+          // Sin esto el modelo compararía medio ciclo contra ciclos completos
+          // y anunciaría una caída que no existe.
+          isPartial: cycle.isPartial,
+        })),
+      };
+    },
+  }),
+
+  getIncomeByClient: tool({
+    description:
+      "Reparto del ingreso del periodo por cliente, con su peso en el total. Úsala para 'qué cliente me deja más' o preguntas de concentración.",
+    inputSchema: z.object(periodRange),
+    execute: async (input) => {
+      const caller = await getCaller();
+      const response = await caller.useAnalytics.getIncomeByClient(
+        resolveRange(input),
+      );
+
+      if (!response.result) {
+        return { ok: false as const, error: response.message };
+      }
+
+      return {
+        ok: true as const,
+        totalNet: response.result.totals.net,
+        clients: response.result.clients.map((client) => ({
+          name: client.name,
+          count: client.count,
+          net: client.net,
+          iva: client.iva,
+          isr: client.isr,
+          sharePercent: Math.round(client.share * 10) / 10,
+        })),
+      };
+    },
+  }),
+
+  getTaxReserve: tool({
+    description:
+      "Cuánto del saldo NO es del usuario porque se le debe al SAT. Es una estimación de reserva, nunca un cálculo fiscal: respeta al pie de la letra las salvedades que devuelve.",
+    inputSchema: z.object(periodRange),
+    execute: async (input) => {
+      const caller = await getCaller();
+      const response = await caller.useAnalytics.getTaxReserve(
+        resolveRange(input),
+      );
+
+      if (!response.result) {
+        return { ok: false as const, error: response.message };
+      }
+
+      const reserve = response.result;
+      return {
+        ok: true as const,
+        reservaSugerida: reserve.reservaSugerida,
+        ivaTrasladadoCobrado: reserve.ivaTrasladadoCobrado,
+        ivaAcreditableCapturado: reserve.ivaAcreditableCapturado,
+        isrRetenido: reserve.isrRetenido,
+        coverage: reserve.coverage,
+        isFiscalCalculation: reserve.isFiscalCalculation,
+        disclaimers: reserve.disclaimers,
+      };
     },
   }),
 
@@ -562,4 +805,5 @@ export const CHAT_TOOL_APPROVAL = {
   updateIncome: "user-approval",
   deleteIncome: "user-approval",
   createCategory: "user-approval",
+  createClient: "user-approval",
 } as const;

@@ -9,9 +9,12 @@ import {
   PencilLine,
   PieChart,
   Plus,
+  Landmark,
   Search,
   Tags,
   Trash2,
+  TrendingUp,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
@@ -22,7 +25,8 @@ import { Button } from "~/components/ui/button";
 import { useAppSettings } from "~/hooks/use-app-settings";
 import type { ChatMessagePart } from "~/lib/chat-types";
 import { formatExpenseDate } from "~/lib/format";
-import { formatIncomeTitle } from "~/lib/income";
+import { formatIncomeTitle, INCOME_KIND_LABELS } from "~/lib/income";
+import { api } from "~/trpc/react";
 import { cn } from "~/lib/utils";
 
 /**
@@ -186,6 +190,9 @@ type IncomePreview = {
   description?: string | null;
   image?: string | null;
   date: string;
+  clientId?: string | null;
+  clientName?: string | null;
+  kind?: string | null;
 };
 
 /**
@@ -201,16 +208,35 @@ function IncomeSummary({ income }: { income: IncomePreview }) {
   const isr = income.isr ?? null;
   const net = income.net ?? income.amount + (iva ?? 0) - (isr ?? 0);
 
-  const details =
-    iva === null && isr === null
+  // Antes de confirmar, la tool sólo trae el id del cliente. Resolverlo aquí
+  // evita que el usuario apruebe un cobro sin ver a nombre de quién va.
+  const { data: clientsResponse } = api.useClients.getAll.useQuery(undefined, {
+    enabled: Boolean(income.clientId) && !income.clientName,
+  });
+  const clientName =
+    income.clientName ??
+    clientsResponse?.result?.find((client) => client.id === income.clientId)
+      ?.name ??
+    null;
+
+  const details = [
+    clientName,
+    income.kind && income.kind !== "OTRO"
+      ? INCOME_KIND_LABELS[income.kind as keyof typeof INCOME_KIND_LABELS]
+      : null,
+    ...(iva === null && isr === null
       ? ["Sin impuestos"]
       : [
           `Base ${formatAmount(income.amount)}`,
           iva !== null ? `IVA ${formatAmount(iva)}` : null,
           isr !== null ? `ISR ${formatAmount(isr)}` : null,
-        ].filter(Boolean);
+        ]),
+  ].filter(Boolean);
 
-  const title = formatIncomeTitle({ description: income.description ?? null });
+  const title = formatIncomeTitle({
+    description: income.description ?? null,
+    client: clientName ? { name: clientName } : null,
+  });
 
   return (
     <div className="flex items-start gap-3 p-3">
@@ -595,6 +621,8 @@ export function ChatToolPart({ part, onRespondToApproval }: ChatToolPartProps) {
                 description: part.input.description,
                 image: part.input.image,
                 date: part.input.date,
+                clientId: part.input.clientId,
+                kind: part.input.kind,
               }
             : null;
 
@@ -762,6 +790,118 @@ export function ChatToolPart({ part, onRespondToApproval }: ChatToolPartProps) {
           </p>
         </ActionCard>
       );
+    }
+
+    /* ------------------------------------------------------------ clientes */
+    case "tool-listClients": {
+      if (part.state === "output-error") {
+        return <ToolError message="No pude leer tus clientes." />;
+      }
+      if (part.state !== "output-available") {
+        return (
+          <ToolStatus icon={Users} label="Revisando tus clientes…" pending />
+        );
+      }
+      return (
+        <ToolStatus
+          icon={Users}
+          label={`Revisé tus ${part.output.clients.length} clientes`}
+        />
+      );
+    }
+
+    case "tool-createClient": {
+      if (part.state === "input-streaming") {
+        return (
+          <ToolStatus icon={Users} label="Preparando el cliente…" pending />
+        );
+      }
+      if (part.state === "output-error") {
+        return <ToolError message="No se pudo crear el cliente." />;
+      }
+
+      return (
+        <ActionCard
+          icon={Users}
+          title="Nuevo cliente"
+          tone={
+            part.state === "output-available" && part.output.ok
+              ? "success"
+              : part.state === "output-denied"
+                ? "muted"
+                : "default"
+          }
+          footer={
+            part.state === "approval-requested" &&
+            !part.approval.isAutomatic ? (
+              <ConfirmFooter
+                confirmLabel="Crear cliente"
+                onRespond={(approved) =>
+                  onRespondToApproval(part.approval.id, approved)
+                }
+              />
+            ) : part.state === "output-denied" ? (
+              <DeniedFooter label="No se creó." />
+            ) : part.state === "output-available" ? (
+              part.output.ok ? (
+                <DoneFooter label="Cliente creado." />
+              ) : (
+                <DeniedFooter label={part.output.error} />
+              )
+            ) : (
+              <PendingFooter label="Creando…" />
+            )
+          }
+        >
+          <div className="flex items-center gap-3 p-3">
+            <CategoryIcon icon={part.input.icon} color={part.input.color} />
+            <p className="truncate font-medium">{part.input.name}</p>
+          </div>
+        </ActionCard>
+      );
+    }
+
+    /* ------------------------------------------------------------ análisis */
+    case "tool-getTrend": {
+      if (part.state === "output-error") {
+        return <ToolError message="No pude calcular la tendencia." />;
+      }
+      if (part.state !== "output-available") {
+        return (
+          <ToolStatus icon={TrendingUp} label="Comparando periodos…" pending />
+        );
+      }
+      if (!part.output.ok) return <ToolError message={part.output.error} />;
+      return <TrendCard cycles={part.output.cycles} />;
+    }
+
+    case "tool-getIncomeByClient": {
+      if (part.state === "output-error") {
+        return <ToolError message="No pude repartir el ingreso por cliente." />;
+      }
+      if (part.state !== "output-available") {
+        return (
+          <ToolStatus icon={Users} label="Repartiendo por cliente…" pending />
+        );
+      }
+      if (!part.output.ok) return <ToolError message={part.output.error} />;
+      if (part.output.clients.length === 0) {
+        return <ToolStatus icon={Users} label="Sin cobros en el periodo" />;
+      }
+      return <ByClientCard output={part.output} />;
+    }
+
+    case "tool-getTaxReserve": {
+      if (part.state === "output-error") {
+        return <ToolError message="No pude calcular el apartado." />;
+      }
+      if (part.state !== "output-available") {
+        return (
+          <ToolStatus icon={Landmark} label="Calculando el apartado…" pending />
+        );
+      }
+      if (!part.output.ok) return <ToolError message={part.output.error} />;
+      return <TaxReserveCard output={part.output} />;
     }
 
     /* --------------------------------------------------------- categorías */
@@ -1015,6 +1155,127 @@ function ExpenseListCard({
           </li>
         ))}
       </ul>
+    </ActionCard>
+  );
+}
+
+function TrendCard({
+  cycles,
+}: {
+  cycles: {
+    label: string;
+    spent: number;
+    incomeNet: number;
+    balance: number;
+    isPartial: boolean;
+  }[];
+}) {
+  const { formatAmount } = useAppSettings();
+
+  return (
+    <ActionCard icon={TrendingUp} title="Comparación de periodos">
+      <ul className="divide-y">
+        {cycles.map((cycle) => (
+          <li key={cycle.label} className="px-3 py-2.5">
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="truncate text-sm font-medium">
+                {cycle.label}
+                {/* Marcar el ciclo abierto evita leer media barra como caída. */}
+                {cycle.isPartial ? (
+                  <span className="text-muted-foreground ml-1.5 text-xs font-normal">
+                    en curso
+                  </span>
+                ) : null}
+              </p>
+              <p
+                className={cn(
+                  "shrink-0 text-sm font-semibold tabular-nums",
+                  cycle.balance < 0 && "text-destructive",
+                )}
+              >
+                {formatAmount(cycle.balance)}
+              </p>
+            </div>
+            <p className="text-muted-foreground text-xs tabular-nums">
+              Cobrado {formatAmount(cycle.incomeNet)} · Gastado{" "}
+              {formatAmount(cycle.spent)}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </ActionCard>
+  );
+}
+
+function ByClientCard({
+  output,
+}: {
+  output: {
+    totalNet: number;
+    clients: {
+      name: string;
+      count: number;
+      net: number;
+      sharePercent: number;
+    }[];
+  };
+}) {
+  const { formatAmount } = useAppSettings();
+
+  return (
+    <ActionCard icon={Users} title="Ingreso por cliente">
+      <ul className="divide-y">
+        {output.clients.map((client) => (
+          <li
+            key={client.name}
+            className="flex items-baseline justify-between gap-3 px-3 py-2.5"
+          >
+            <p className="truncate text-sm font-medium">
+              {client.name}
+              <span className="text-muted-foreground ml-1.5 text-xs font-normal">
+                {client.sharePercent}%
+              </span>
+            </p>
+            <p className="shrink-0 text-sm font-semibold tabular-nums">
+              {formatAmount(client.net)}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </ActionCard>
+  );
+}
+
+function TaxReserveCard({
+  output,
+}: {
+  output: {
+    reservaSugerida: number;
+    ivaTrasladadoCobrado: number;
+    ivaAcreditableCapturado: number;
+    disclaimers: string[];
+  };
+}) {
+  const { formatAmount } = useAppSettings();
+
+  return (
+    <ActionCard icon={Landmark} title="Apartado sugerido">
+      <div className="space-y-2 p-3">
+        <p className="text-2xl font-semibold tabular-nums">
+          {formatAmount(output.reservaSugerida)}
+        </p>
+        <p className="text-muted-foreground text-xs tabular-nums">
+          IVA cobrado {formatAmount(output.ivaTrasladadoCobrado)} menos IVA de
+          gastos capturado {formatAmount(output.ivaAcreditableCapturado)}
+        </p>
+        {/* Las salvedades se muestran junto al número, no sólo en el texto del
+            asistente: son lo que impide leerlo como un monto a declarar. */}
+        <ul className="text-muted-foreground space-y-1 border-t pt-2 text-xs">
+          {output.disclaimers.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+      </div>
     </ActionCard>
   );
 }
