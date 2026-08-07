@@ -1,3 +1,4 @@
+import { IncomeKind, PaymentMethod } from "@prisma/client";
 import { z } from "zod";
 
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
@@ -33,6 +34,32 @@ const RETENTION_ERROR = {
   message: "La retención no puede ser mayor al total facturado",
 } as const;
 
+/**
+ * Procedencia del cobro. Todo es opcional: un ingreso sigue siendo válido
+ * sabiendo sólo el monto y la fecha, que es como se capturaban hasta ahora.
+ */
+const originInput = {
+  clientId: z.string().nullish(),
+  kind: z.nativeEnum(IncomeKind).optional(),
+  project: z.string().nullish(),
+  paymentMethod: z.nativeEnum(PaymentMethod).nullish(),
+};
+
+/** Normaliza los campos de procedencia para escribirlos en la base. */
+function originData(input: {
+  clientId?: string | null;
+  kind?: IncomeKind;
+  project?: string | null;
+  paymentMethod?: PaymentMethod | null;
+}) {
+  return {
+    clientId: input.clientId ?? null,
+    kind: input.kind ?? IncomeKind.OTRO,
+    project: input.project?.trim() ?? null,
+    paymentMethod: input.paymentMethod ?? null,
+  };
+}
+
 export const useIncomes = createTRPCRouter({
   create: publicProcedure
     .input(
@@ -43,6 +70,7 @@ export const useIncomes = createTRPCRouter({
         description: z.string().nullish(),
         image: z.string().url().nullable().optional(),
         date: z.date(),
+        ...originInput,
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -65,6 +93,7 @@ export const useIncomes = createTRPCRouter({
             description: input.description?.trim() ?? null,
             image: input.image ?? null,
             date: input.date,
+            ...originData(input),
           },
         });
 
@@ -85,33 +114,45 @@ export const useIncomes = createTRPCRouter({
       }
     }),
 
-  getAll: publicProcedure.input(periodInput).query(async ({ input, ctx }) => {
-    const { from, to } = await resolvePeriod(ctx.db, input);
+  getAll: publicProcedure
+    .input(
+      periodInput.extend({
+        clientId: z.string().optional(),
+        kind: z.nativeEnum(IncomeKind).optional(),
+        project: z.string().optional(),
+      }),
+    )
+    .query(async ({ input, ctx }) => {
+      const { from, to } = await resolvePeriod(ctx.db, input);
 
-    try {
-      const incomes = await ctx.db.income.findMany({
-        where: {
-          date: { gte: from, lt: to },
-        },
-        orderBy: { date: "desc" },
-      });
+      try {
+        const incomes = await ctx.db.income.findMany({
+          where: {
+            date: { gte: from, lt: to },
+            clientId: input.clientId,
+            kind: input.kind,
+            project: input.project,
+          },
+          include: { client: true },
+          orderBy: { date: "desc" },
+        });
 
-      return {
-        result: incomes,
-        status: 200,
-        error: null,
-        message: "Incomes fetched successfully",
-      };
-    } catch (error) {
-      console.error(error);
-      return {
-        result: null,
-        status: 500,
-        error: error,
-        message: "Incomes fetching failed",
-      };
-    }
-  }),
+        return {
+          result: incomes,
+          status: 200,
+          error: null,
+          message: "Incomes fetched successfully",
+        };
+      } catch (error) {
+        console.error(error);
+        return {
+          result: null,
+          status: 500,
+          error: error,
+          message: "Incomes fetching failed",
+        };
+      }
+    }),
 
   update: publicProcedure
     .input(
@@ -123,18 +164,25 @@ export const useIncomes = createTRPCRouter({
         description: z.string().nullish(),
         image: z.string().url().nullable().optional(),
         date: z.date().optional(),
+        ...originInput,
       }),
     )
     .mutation(async ({ input, ctx }) => {
       try {
-        const { id, description, ...rest } = input;
+        const { id, description, project, ...rest } = input;
 
         // Sin descripción el campo se limpia; si no viene en el input, se deja
-        // como estaba.
-        const data =
-          description === undefined
-            ? rest
-            : { ...rest, description: description?.trim() ?? null };
+        // como estaba. Mismo trato para el proyecto: `null` lo borra,
+        // `undefined` lo conserva.
+        const data = {
+          ...rest,
+          ...(description === undefined
+            ? {}
+            : { description: description?.trim() ?? null }),
+          ...(project === undefined
+            ? {}
+            : { project: project?.trim() ?? null }),
+        };
 
         // La edición es parcial, así que la regla se valida sobre el resultado
         // final: lo que llega en el input mezclado con lo que ya estaba.

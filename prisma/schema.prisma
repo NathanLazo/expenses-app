@@ -1,70 +1,123 @@
 generator client {
-    provider = "prisma-client-js"
+  provider = "prisma-client-js"
 }
 
 datasource db {
-    provider = "postgresql"
-    url      = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// De dónde viene el dinero. Importa para lo fiscal: sólo algunos tipos llevan
+/// retención, y cada uno se declara distinto.
+enum IncomeKind {
+  HONORARIOS
+  SALARIO
+  VENTA
+  RENTA
+  INTERESES
+  OTRO
+}
+
+enum PaymentMethod {
+  TRANSFERENCIA
+  EFECTIVO
+  TARJETA
+  PLATAFORMA
+  OTRO
+}
+
+/// Quién paga. Un catálogo aparte de Category: una categoría clasifica en qué
+/// se va el dinero, un cliente es una contraparte con nombre propio.
+model Client {
+  id        String   @id @default(cuid())
+  name      String
+  color     String   @default("#3B82F6")
+  icon      String   @default("💼")
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  incomes Income[]
+
+  @@map("clients")
 }
 
 model Category {
-    id          String   @id @default(cuid())
-    name        String
-    description String?
-    color       String   @default("#3B82F6")
-    icon        String   @default("💰")
-    budget      Float?
-    createdAt   DateTime @default(now())
-    updatedAt   DateTime @updatedAt
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  color       String   @default("#3B82F6")
+  icon        String   @default("💰")
+  budget      Float?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-    expenses Expense[]
+  expenses Expense[]
 
-    @@map("categories")
+  @@map("categories")
 }
 
 model Expense {
-    id          String   @id @default(cuid())
-    amount      Float
-    /// Nota opcional del gasto. Null cuando basta con la categoría.
-    description String?
-    /// URL pública del ticket en Vercel Blob. Null si el gasto no tiene foto.
-    image       String?
-    date        DateTime @default(now())
-    createdAt   DateTime @default(now())
-    updatedAt   DateTime @updatedAt
+  id          String   @id @default(cuid())
+  amount      Float
+  /// IVA acreditable: el IVA que venía dentro de `amount`, cuando el gasto
+  /// está facturado. Null cuando no se capturó, que no es lo mismo que cero.
+  iva         Float?
+  /// Nota opcional del gasto. Null cuando basta con la categoría.
+  description String?
+  /// URL pública del ticket en Vercel Blob. Null si el gasto no tiene foto.
+  image       String?
+  date        DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-    categoryId String
-    category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
-    @@map("expenses")
+  @@index([date])
+  @@map("expenses")
 }
 
 model Income {
-    id String @id @default(cuid())
-    /// Lo cobrado antes de impuestos: la base de la factura o del recibo.
-    amount Float
-    /// IVA trasladado sobre la base. Null cuando el ingreso no se facturó.
-    iva    Float?
-    /// ISR retenido por quien paga. Null cuando no hubo retención.
-    isr    Float?
-    /// Concepto o cliente. Null cuando basta con la fecha y el monto.
-    description String?
-    /// Foto o captura de la factura, en Vercel Blob. Null si no se adjuntó.
-    image       String?
-    date        DateTime @default(now())
-    createdAt   DateTime @default(now())
-    updatedAt   DateTime @updatedAt
+  id            String         @id @default(cuid())
+  /// Lo cobrado antes de impuestos: la base de la factura o del recibo.
+  amount        Float
+  /// IVA trasladado sobre la base. Null cuando el ingreso no se facturó.
+  iva           Float?
+  /// ISR retenido por quien paga. Null cuando no hubo retención.
+  isr           Float?
+  /// Concepto o cliente. Null cuando basta con la fecha y el monto.
+  description   String?
+  /// Foto o captura de la factura, en Vercel Blob. Null si no se adjuntó.
+  image         String?
+  /// Trabajo al que pertenece el cobro, para juntar anticipo, avance y
+  /// finiquito. Texto libre a propósito: un proyecto nace y muere, no
+  /// justifica un catálogo que haya que administrar.
+  project       String?
+  kind          IncomeKind     @default(OTRO)
+  paymentMethod PaymentMethod?
+  date          DateTime       @default(now())
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 
-    @@map("incomes")
+  /// SetNull y no Cascade, al revés que Expense.category: borrar un cliente
+  /// no puede borrar el historial de lo que te pagó. Un ingreso sin cliente
+  /// sigue siendo un ingreso; un ingreso borrado es dinero que desaparece.
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  @@index([date])
+  @@index([clientId])
+  @@map("incomes")
 }
 
 model AppSettings {
-    id            String   @id @default("global") // Solo un registro global
-    cycleStartDay Int      @default(1) // Día del mes donde inicia el ciclo (1-28)
-    monthlyBudget Float? // Presupuesto mensual total
-    currency      String   @default("USD")
-    createdAt     DateTime @default(now())
-    updatedAt     DateTime @updatedAt
+  id            String   @id @default("global") // Solo un registro global
+  cycleStartDay Int      @default(1) // Día del mes donde inicia el ciclo (1-28)
+  monthlyBudget Float? // Presupuesto mensual total
+  currency      String   @default("USD")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-    @@map("app_settings")
+  @@map("app_settings")
 }
