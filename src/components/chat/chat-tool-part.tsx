@@ -184,6 +184,7 @@ type IncomePreview = {
   /** Lo calcula el servidor; mientras la tool no responde se deriva aquí. */
   net?: number;
   description?: string | null;
+  image?: string | null;
   date: string;
 };
 
@@ -194,6 +195,7 @@ type IncomePreview = {
  */
 function IncomeSummary({ income }: { income: IncomePreview }) {
   const { formatAmount } = useAppSettings();
+  const [isReceiptOpen, setIsReceiptOpen] = useState(false);
 
   const iva = income.iva ?? null;
   const isr = income.isr ?? null;
@@ -208,19 +210,45 @@ function IncomeSummary({ income }: { income: IncomePreview }) {
           isr !== null ? `ISR ${formatAmount(isr)}` : null,
         ].filter(Boolean);
 
+  const title = formatIncomeTitle({ description: income.description ?? null });
+
   return (
-    <div className="space-y-1 p-3">
-      <div className="flex items-baseline justify-between gap-3">
-        <p className="truncate font-medium">
-          {formatIncomeTitle({ description: income.description ?? null })}
-        </p>
-        <p className="shrink-0 text-lg font-semibold tabular-nums">
-          {formatAmount(net)}
+    <div className="flex items-start gap-3 p-3">
+      {income.image ? (
+        <>
+          <button
+            type="button"
+            onClick={() => setIsReceiptOpen(true)}
+            aria-label={`Ver la factura de ${title}`}
+            className="focus-visible:ring-ring size-10 shrink-0 overflow-hidden rounded-md transition-opacity duration-150 hover:opacity-80 focus-visible:ring-2 focus-visible:outline-none"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={income.image}
+              alt=""
+              className="image-outline size-full rounded-md object-cover"
+            />
+          </button>
+          <ReceiptViewer
+            url={isReceiptOpen ? income.image : null}
+            onClose={() => setIsReceiptOpen(false)}
+            title={title}
+          />
+        </>
+      ) : null}
+
+      <div className="min-w-0 flex-1 space-y-1">
+        <div className="flex items-baseline justify-between gap-3">
+          <p className="truncate font-medium">{title}</p>
+          <p className="shrink-0 text-lg font-semibold tabular-nums">
+            {formatAmount(net)}
+          </p>
+        </div>
+        <p className="text-muted-foreground truncate text-xs">
+          {formatExpenseDate(parseToolDate(income.date))} ·{" "}
+          {details.join(" · ")}
         </p>
       </div>
-      <p className="text-muted-foreground truncate text-xs">
-        {formatExpenseDate(parseToolDate(income.date))} · {details.join(" · ")}
-      </p>
     </div>
   );
 }
@@ -565,6 +593,7 @@ export function ChatToolPart({ part, onRespondToApproval }: ChatToolPartProps) {
                 iva: part.input.iva,
                 isr: part.input.isr,
                 description: part.input.description,
+                image: part.input.image,
                 date: part.input.date,
               }
             : null;

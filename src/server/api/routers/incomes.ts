@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { periodInput, resolvePeriod } from "~/server/api/period";
+import { deleteReceipt } from "~/server/blob";
 import { sumIncomeTotals } from "~/lib/income";
 
 /**
@@ -40,6 +41,7 @@ export const useIncomes = createTRPCRouter({
         iva: taxInput,
         isr: taxInput,
         description: z.string().nullish(),
+        image: z.string().url().nullable().optional(),
         date: z.date(),
       }),
     )
@@ -61,6 +63,7 @@ export const useIncomes = createTRPCRouter({
             iva: input.iva ?? null,
             isr: input.isr ?? null,
             description: input.description?.trim() ?? null,
+            image: input.image ?? null,
             date: input.date,
           },
         });
@@ -118,6 +121,7 @@ export const useIncomes = createTRPCRouter({
         iva: taxInput,
         isr: taxInput,
         description: z.string().nullish(),
+        image: z.string().url().nullable().optional(),
         date: z.date().optional(),
       }),
     )
@@ -136,7 +140,7 @@ export const useIncomes = createTRPCRouter({
         // final: lo que llega en el input mezclado con lo que ya estaba.
         const current = await ctx.db.income.findUnique({
           where: { id },
-          select: { amount: true, iva: true, isr: true },
+          select: { amount: true, iva: true, isr: true, image: true },
         });
 
         if (!current) {
@@ -163,6 +167,12 @@ export const useIncomes = createTRPCRouter({
           data,
         });
 
+        // Si la factura cambió hay que soltar la anterior, si no queda huérfana
+        // en el store para siempre.
+        if (current.image && current.image !== income.image) {
+          await deleteReceipt(current.image);
+        }
+
         return {
           result: income,
           status: 200,
@@ -187,6 +197,8 @@ export const useIncomes = createTRPCRouter({
         const income = await ctx.db.income.delete({
           where: { id: input.id },
         });
+
+        await deleteReceipt(income.image);
 
         return {
           result: income,

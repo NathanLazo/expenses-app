@@ -96,6 +96,7 @@ function toChatIncome(income: {
   iva: number | null;
   isr: number | null;
   description: string | null;
+  image: string | null;
   date: Date;
 }) {
   return {
@@ -105,6 +106,7 @@ function toChatIncome(income: {
     isr: income.isr,
     net: getIncomeTotals(income).net,
     description: income.description,
+    image: income.image,
     date: toDateInput(new Date(income.date)),
   };
 }
@@ -408,7 +410,7 @@ export const chatTools = {
 
   createIncome: tool({
     description:
-      "Registra un cobro. `amount` es la BASE antes de impuestos: en una factura es el subtotal, nunca el total. `iva` e `isr` van aparte y son opcionales.",
+      "Registra un cobro. `amount` es la BASE antes de impuestos: en una factura es el subtotal, nunca el total. `iva` e `isr` van aparte y son opcionales. Pasa `image` con la URL de la factura cuando el usuario haya adjuntado una foto.",
     inputSchema: z.object({
       amount: z
         .number()
@@ -436,14 +438,20 @@ export const chatTools = {
         .max(120)
         .optional()
         .describe("Concepto o cliente, por ejemplo 'Factura 128, rediseño'."),
+      image: z
+        .string()
+        .url()
+        .optional()
+        .describe("URL de la foto de la factura que adjuntó el usuario."),
     }),
-    execute: async ({ amount, iva, isr, date, description }) => {
+    execute: async ({ amount, iva, isr, date, description, image }) => {
       const caller = await getCaller();
       const response = await caller.useIncomes.create({
         amount,
         iva: iva ?? null,
         isr: isr ?? null,
         description: description ?? null,
+        image: image ?? null,
         date: toLocalDate(date),
       });
 

@@ -17,8 +17,8 @@ import { api } from "~/trpc/react";
 
 /**
  * Suelta del store una foto que ya no se va a usar. El servidor ignora la
- * petición si algún gasto sigue apuntando a esa URL, así que es seguro llamarlo
- * también al editar un gasto existente.
+ * petición si algún gasto o ingreso sigue apuntando a esa URL, así que es
+ * seguro llamarlo también al editar un movimiento existente.
  */
 export function useDiscardReceipt() {
   const discardReceipt = api.useExpenses.discardReceipt.useMutation();
@@ -29,14 +29,40 @@ export function useDiscardReceipt() {
   };
 }
 
+/**
+ * El mismo campo sirve para el ticket de un gasto y para la factura de un
+ * ingreso. Los textos van en una tabla cerrada y no armados por concatenación,
+ * porque en español el artículo y la concordancia cambian con el sustantivo.
+ */
+const COPY = {
+  ticket: {
+    folder: "tickets",
+    attached: "Ticket adjuntado",
+    uploadError: "No se pudo subir el ticket",
+    alt: "Foto del ticket",
+    zoom: "Ver ticket completo",
+    remove: "Quitar ticket",
+  },
+  factura: {
+    folder: "facturas",
+    attached: "Factura adjuntada",
+    uploadError: "No se pudo subir la factura",
+    alt: "Foto de la factura",
+    zoom: "Ver factura completa",
+    remove: "Quitar factura",
+  },
+} as const;
+
 type ReceiptFieldProps = {
-  /** URL del ticket ya subido, o `null` si el gasto todavía no tiene foto. */
+  /** URL de la imagen ya subida, o `null` si todavía no hay ninguna. */
   value: string | null;
   onChange: (url: string | null) => void;
   /** Informa al formulario para bloquear el submit mientras sube la foto. */
   onUploadingChange?: (uploading: boolean) => void;
   onPreview?: (url: string) => void;
   disabled?: boolean;
+  /** Qué se está adjuntando; cambia los textos y la carpeta del store. */
+  kind?: keyof typeof COPY;
 };
 
 export function ReceiptField({
@@ -45,7 +71,9 @@ export function ReceiptField({
   onUploadingChange,
   onPreview,
   disabled,
+  kind = "ticket",
 }: ReceiptFieldProps) {
+  const copy = COPY[kind];
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
@@ -96,7 +124,7 @@ export function ReceiptField({
         return;
       }
 
-      const blob = await upload(`tickets/${optimized.name}`, optimized, {
+      const blob = await upload(`${copy.folder}/${optimized.name}`, optimized, {
         access: "public",
         handleUploadUrl: "/api/receipts/upload",
         contentType: optimized.type,
@@ -107,10 +135,10 @@ export function ReceiptField({
       const replaced = value;
       onChange(blob.url);
       discardReceipt(replaced);
-      toast.success("Ticket adjuntado");
+      toast.success(copy.attached);
     } catch (error) {
       console.error(error);
-      toast.error("No se pudo subir el ticket", {
+      toast.error(copy.uploadError, {
         description: "Revisa tu conexión e inténtalo de nuevo.",
       });
     } finally {
@@ -151,7 +179,7 @@ export function ReceiptField({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={shownImage}
-            alt="Foto del ticket"
+            alt={copy.alt}
             className={cn(
               "max-h-56 w-full object-cover transition-opacity",
               isUploading && "opacity-50",
@@ -174,7 +202,7 @@ export function ReceiptField({
                   size="icon"
                   variant="secondary"
                   className="size-8 shadow-sm"
-                  aria-label="Ver ticket completo"
+                  aria-label={copy.zoom}
                   onClick={() => onPreview(shownImage)}
                 >
                   <ZoomIn className="size-4" />
@@ -185,7 +213,7 @@ export function ReceiptField({
                 size="icon"
                 variant="destructive"
                 className="size-8 shadow-sm"
-                aria-label="Quitar ticket"
+                aria-label={copy.remove}
                 disabled={disabled}
                 onClick={() => {
                   onChange(null);

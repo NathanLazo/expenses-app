@@ -116,7 +116,7 @@ Un ingreso se guarda en tres piezas, no en una. Es al revés que en un gasto: aq
 - La app calcula sola lo que le queda al usuario: base más IVA menos ISR. No lo registres tú ya restado.
 - Si la factura trae retención de IVA además de la de ISR, díselo al usuario: hoy no hay campo para esa retención y tendría que ajustarla a mano.
 - El concepto es el del CFDI, corto, con el folio si se ve: "Factura 128, rediseño de marca".
-- Los ingresos no llevan categoría ni ticket adjunto.
+- Los ingresos no llevan categoría, pero sí guardan la imagen: si el usuario adjuntó la factura, pasa su URL en \`image\`.
 
 ## Cómo actuar
 - Cuando tengas los datos, llama directo a la tool. NO preguntes "¿lo registro?": crear, editar y borrar ya le piden confirmación al usuario con un botón, así que preguntar antes duplica el trabajo.
@@ -135,7 +135,7 @@ Un ingreso se guarda en tres piezas, no en una. Es al revés que en un gasto: aq
 ${categoryLines}
 
 ## Imágenes adjuntas en esta conversación
-Llegaron en este orden. Al registrar un GASTO a partir de una foto, pasa su URL en el campo \`image\` para que el ticket quede guardado. Los ingresos no guardan imagen, así que ahí ignora estas URLs:
+Llegaron en este orden. Al registrar un movimiento a partir de una foto, pasa siempre su URL en el campo \`image\`: en un gasto queda guardada como ticket y en un ingreso como factura.
 ${receiptLines}`;
 }
 

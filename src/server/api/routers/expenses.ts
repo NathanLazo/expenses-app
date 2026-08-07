@@ -199,21 +199,32 @@ export const useExpenses = createTRPCRouter({
     }),
 
   /**
-   * Borra un ticket que se subió pero nunca llegó a guardarse (el usuario lo
-   * quitó, lo reemplazó o cerró el formulario). Sin esto, cada foto descartada
+   * Borra una imagen que se subió pero nunca llegó a guardarse (el usuario la
+   * quitó, la reemplazó o cerró el formulario). Sin esto, cada foto descartada
    * quedaría ocupando espacio en Blob para siempre.
+   *
+   * Vive en este router por historia, pero sirve a los dos formularios que
+   * suben imágenes: tickets de gasto y facturas de ingreso.
    */
   discardReceipt: publicProcedure
     .input(z.object({ url: z.string().url() }))
     .mutation(async ({ input, ctx }) => {
       try {
-        // Red de seguridad: si algún gasto todavía apunta a esa URL, no se toca.
-        const inUse = await ctx.db.expense.findFirst({
-          where: { image: input.url },
-          select: { id: true },
-        });
+        // Red de seguridad: si algún gasto o ingreso todavía apunta a esa URL,
+        // no se toca. Omitir los ingresos aquí borraría la factura de uno ya
+        // guardado en cuanto el usuario descartara otra imagen.
+        const [expenseInUse, incomeInUse] = await Promise.all([
+          ctx.db.expense.findFirst({
+            where: { image: input.url },
+            select: { id: true },
+          }),
+          ctx.db.income.findFirst({
+            where: { image: input.url },
+            select: { id: true },
+          }),
+        ]);
 
-        if (inUse) {
+        if (expenseInUse ?? incomeInUse) {
           return {
             result: { deleted: false },
             status: 200,

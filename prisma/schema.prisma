@@ -49,6 +49,8 @@ model Income {
     isr    Float?
     /// Concepto o cliente. Null cuando basta con la fecha y el monto.
     description String?
+    /// Foto o captura de la factura, en Vercel Blob. Null si no se adjuntó.
+    image       String?
     date        DateTime @default(now())
     createdAt   DateTime @default(now())
     updatedAt   DateTime @updatedAt
