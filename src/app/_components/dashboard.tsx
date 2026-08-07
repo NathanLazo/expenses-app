@@ -211,7 +211,7 @@ export default function Dashboard() {
               <div className="grid items-center gap-6 sm:grid-cols-2">
                 <ChartContainer
                   config={chartConfig}
-                  className="mx-auto aspect-square max-h-[220px] w-full"
+                  className="mx-auto aspect-auto h-[220px] w-full max-w-[220px]"
                 >
                   <PieChart>
                     <ChartTooltip
