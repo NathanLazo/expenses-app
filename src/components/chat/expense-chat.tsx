@@ -13,6 +13,7 @@ import { ChatComposer } from "~/components/chat/chat-composer";
 import { ChatMessage } from "~/components/chat/chat-message";
 import { useReceiptAttachments } from "~/components/chat/use-receipt-attachments";
 import { Button } from "~/components/ui/button";
+import { dismissPendingApprovals } from "~/lib/chat-approvals";
 import type { ChatUIMessage } from "~/lib/chat-types";
 import { api } from "~/trpc/react";
 
@@ -99,6 +100,10 @@ export function ExpenseChat() {
       if (!trimmed && files.length === 0) return;
 
       stickToBottom.current = true;
+      // Escribir en vez de tocar el botón de una tarjeta deja la tool sin
+      // resultado y el servidor tira la conversación entera. El mensaje nuevo
+      // manda: lo que quedó pendiente se descarta antes de salir.
+      setMessages(dismissPendingApprovals);
       void sendMessage({
         // Sin texto el modelo no sabe qué hacer con la foto; el encargo va implícito.
         text: trimmed || "Registra el gasto de este ticket.",
@@ -108,7 +113,7 @@ export function ExpenseChat() {
       setInput("");
       clearAttachments();
     },
-    [attachments, clearAttachments, sendMessage],
+    [attachments, clearAttachments, sendMessage, setMessages],
   );
 
   const statusLabel = error
