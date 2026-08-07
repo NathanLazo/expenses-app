@@ -7,6 +7,8 @@ import {
   type UIMessage,
 } from "ai";
 
+import { dismissPendingApprovals } from "~/lib/chat-approvals";
+import type { ChatUIMessage } from "~/lib/chat-types";
 import {
   DEFAULT_CURRENCY,
   formatPeriodLabel,
@@ -158,7 +160,14 @@ ${receiptLines}`;
 }
 
 export async function POST(req: Request) {
-  const { messages }: { messages: UIMessage[] } = await req.json();
+  const body = (await req.json()) as { messages: ChatUIMessage[] };
+  /**
+   * El cliente ya cierra las confirmaciones que quedaron a medias, pero una
+   * llamada a una tool sin resultado tumba el turno entero
+   * (`AI_MissingToolResultsError`). Lo repetimos aquí para que ningún historial
+   * viejo —el de un "Reintentar", por ejemplo— pueda tirar el endpoint.
+   */
+  const messages = dismissPendingApprovals(body.messages);
 
   const result = streamText({
     model: MODEL,
