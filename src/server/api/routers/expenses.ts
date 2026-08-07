@@ -10,6 +10,9 @@ export const useExpenses = createTRPCRouter({
     .input(
       z.object({
         amount: z.number(),
+        // IVA acreditable incluido en `amount`. Null cuando no se capturó, que
+        // no es lo mismo que cero: sin capturar no sabemos si el gasto llevaba.
+        iva: z.number().nonnegative().nullish(),
         description: z.string().nullish(),
         date: z.date(),
         categoryId: z.string(),
@@ -21,6 +24,7 @@ export const useExpenses = createTRPCRouter({
         const expense = await ctx.db.expense.create({
           data: {
             amount: input.amount,
+            iva: input.iva ?? null,
             description: input.description?.trim() ?? null,
             date: input.date,
             categoryId: input.categoryId,
@@ -99,6 +103,7 @@ export const useExpenses = createTRPCRouter({
       z.object({
         id: z.string(),
         amount: z.number().positive().optional(),
+        iva: z.number().nonnegative().nullish(),
         description: z.string().nullish(),
         categoryId: z.string().optional(),
         date: z.date().optional(),

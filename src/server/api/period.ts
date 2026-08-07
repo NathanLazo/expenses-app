@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import type { db as database } from "~/server/db";
-import { getCycleRange } from "~/lib/format";
+import { getCycleRange, normalizeCycleStartDay } from "~/lib/format";
 
 /**
  * Las consultas se filtran por un rango explícito en vez de por mes calendario,
@@ -26,11 +26,23 @@ export async function resolvePeriod(
     return { from: input.from, to: input.to };
   }
 
+  const cycle = getCycleRange(await getCycleStartDay(db));
+  return { from: input.from ?? cycle.start, to: input.to ?? cycle.end };
+}
+
+/**
+ * Único punto que lee el día de corte de la base.
+ *
+ * Está separado de `resolvePeriod` porque su contrato (`{from, to}`) tira justo
+ * el dato que hace falta para generar una serie de varios ciclos. Quien necesite
+ * N rangos lee el corte una vez con esto y los deriva en memoria, en vez de
+ * llamar a `resolvePeriod` en bucle y pagar N lecturas de configuración.
+ */
+export async function getCycleStartDay(db: typeof database): Promise<number> {
   const settings = await db.appSettings.findUnique({
     where: { id: "global" },
     select: { cycleStartDay: true },
   });
 
-  const cycle = getCycleRange(settings?.cycleStartDay ?? 1);
-  return { from: input.from ?? cycle.start, to: input.to ?? cycle.end };
+  return normalizeCycleStartDay(settings?.cycleStartDay ?? 1);
 }

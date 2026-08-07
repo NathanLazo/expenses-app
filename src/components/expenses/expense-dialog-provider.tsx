@@ -170,6 +170,7 @@ export function ExpenseDialogProvider({
               editing
                 ? {
                     amount: String(editing.amount),
+                    iva: editing.iva !== null ? String(editing.iva) : "",
                     description: editing.description ?? "",
                     categoryId: editing.categoryId,
                     date: new Date(editing.date),
@@ -195,8 +196,7 @@ export function ExpenseDialogProvider({
             <strong>
               {pendingDelete ? formatExpenseTitle(pendingDelete) : ""}
             </strong>{" "}
-            de forma
-            permanente. Esta acción no se puede deshacer.
+            de forma permanente. Esta acción no se puede deshacer.
           </>
         }
         confirmLabel="Eliminar"
