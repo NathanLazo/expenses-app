@@ -28,7 +28,10 @@ export function MobileNav() {
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex min-w-0 flex-col items-center gap-1 px-1 py-2.5 text-[11px] font-medium transition-colors",
+                  // Más aire abajo que arriba: las esquinas redondeadas de la
+                  // pantalla recortan en diagonal las etiquetas de los extremos
+                  // (la primera del primer destino, la última del último).
+                  "flex min-w-0 flex-col items-center gap-1 px-1 pt-2.5 pb-4 text-[11px] font-medium transition-colors",
                   active
                     ? "text-primary"
                     : "text-muted-foreground hover:text-foreground",
