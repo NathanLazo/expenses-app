@@ -28,14 +28,18 @@ export function MobileNav() {
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors",
+                  "flex min-w-0 flex-col items-center gap-1 px-1 py-2.5 text-[11px] font-medium transition-colors",
                   active
                     ? "text-primary"
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
-                <item.icon className="size-5" />
-                {item.title}
+                <item.icon className="size-5 shrink-0" />
+                {/* Con seis destinos las etiquetas largas no caben en pantallas
+                    angostas: se recortan en vez de desbordar la barra. */}
+                <span className="w-full truncate text-center">
+                  {item.title}
+                </span>
               </Link>
             </li>
           );

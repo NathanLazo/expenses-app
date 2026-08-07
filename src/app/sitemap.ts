@@ -6,6 +6,7 @@ const routes = [
   "/",
   "/chat",
   "/expenses",
+  "/income",
   "/categories",
   "/reports",
   "/settings",

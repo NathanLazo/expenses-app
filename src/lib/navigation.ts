@@ -1,4 +1,5 @@
 import {
+  Banknote,
   ChartColumnBig,
   LayoutDashboard,
   Receipt,
@@ -23,7 +24,7 @@ export const NAV_ITEMS: NavItem[] = [
     title: "Inicio",
     href: "/",
     icon: LayoutDashboard,
-    description: "Resumen de tus gastos del periodo",
+    description: "Resumen de tus ingresos y gastos del periodo",
   },
   {
     title: "Chat",
@@ -37,6 +38,13 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/expenses",
     icon: Receipt,
     description: "Registra y administra tus transacciones",
+    matchNested: true,
+  },
+  {
+    title: "Ingresos",
+    href: "/income",
+    icon: Banknote,
+    description: "Registra lo que cobras, con IVA e ISR cuando aplique",
     matchNested: true,
   },
   {

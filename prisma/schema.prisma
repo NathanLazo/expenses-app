@@ -39,6 +39,23 @@ model Expense {
     @@map("expenses")
 }
 
+model Income {
+    id String @id @default(cuid())
+    /// Lo cobrado antes de impuestos: la base de la factura o del recibo.
+    amount Float
+    /// IVA trasladado sobre la base. Null cuando el ingreso no se facturó.
+    iva    Float?
+    /// ISR retenido por quien paga. Null cuando no hubo retención.
+    isr    Float?
+    /// Concepto o cliente. Null cuando basta con la fecha y el monto.
+    description String?
+    date        DateTime @default(now())
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+
+    @@map("incomes")
+}
+
 model AppSettings {
     id            String   @id @default("global") // Solo un registro global
     cycleStartDay Int      @default(1) // Día del mes donde inicia el ciclo (1-28)
