@@ -226,7 +226,7 @@ export default function ReportsPage() {
               <CardContent>
                 <ChartContainer
                   config={categoryChartConfig}
-                  className="max-h-[280px] w-full"
+                  className="aspect-auto h-[280px] w-full"
                 >
                   <BarChart data={categoryChartData} accessibilityLayer>
                     <CartesianGrid vertical={false} />
@@ -281,7 +281,7 @@ export default function ReportsPage() {
               <CardContent>
                 <ChartContainer
                   config={pieChartConfig}
-                  className="mx-auto aspect-square max-h-[280px] w-full"
+                  className="mx-auto aspect-auto h-[280px] w-full max-w-[280px]"
                 >
                   <PieChart>
                     <ChartTooltip
@@ -322,7 +322,7 @@ export default function ReportsPage() {
               <CardContent>
                 <ChartContainer
                   config={dailyChartConfig}
-                  className="max-h-[260px] w-full"
+                  className="aspect-auto h-[260px] w-full"
                 >
                   <LineChart data={dailyData} accessibilityLayer>
                     <CartesianGrid vertical={false} />
@@ -373,7 +373,7 @@ export default function ReportsPage() {
               <CardContent>
                 <ChartContainer
                   config={cumulativeChartConfig}
-                  className="max-h-[260px] w-full"
+                  className="aspect-auto h-[260px] w-full"
                 >
                   <AreaChart data={cumulativeData} accessibilityLayer>
                     <CartesianGrid vertical={false} />
