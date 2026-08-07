@@ -3,6 +3,7 @@ import "server-only";
 import { tool } from "ai";
 import { z } from "zod";
 
+import { getIncomeTotals } from "~/lib/income";
 import { createCaller } from "~/server/api/root";
 import { createTRPCContext } from "~/server/api/trpc";
 
@@ -88,7 +89,27 @@ async function findCategory(categoryId: string) {
   };
 }
 
-export const expenseTools = {
+/** Forma con la que el chat muestra un ingreso, con el neto ya calculado. */
+function toChatIncome(income: {
+  id: string;
+  amount: number;
+  iva: number | null;
+  isr: number | null;
+  description: string | null;
+  date: Date;
+}) {
+  return {
+    id: income.id,
+    amount: income.amount,
+    iva: income.iva,
+    isr: income.isr,
+    net: getIncomeTotals(income).net,
+    description: income.description,
+    date: toDateInput(new Date(income.date)),
+  };
+}
+
+export const chatTools = {
   listCategories: tool({
     description:
       "Lista las categorías con su presupuesto y lo gastado en el periodo. Úsala si necesitas ids frescos o el usuario pregunta por sus categorías.",
@@ -116,13 +137,15 @@ export const expenseTools = {
 
   getPeriodSummary: tool({
     description:
-      "Totales del periodo: cuánto se lleva gastado, cuántos movimientos hay y el desglose por categoría. Sin rango usa el ciclo vigente.",
+      "Totales del periodo: lo gastado con su desglose por categoría, lo cobrado con su IVA e ISR, y el balance entre ambos. Sin rango usa el ciclo vigente.",
     inputSchema: z.object(periodRange),
     execute: async (input) => {
       const caller = await getCaller();
-      const response = await caller.useExpenses.getPeriodStats(
-        resolveRange(input),
-      );
+      const range = resolveRange(input);
+      const [response, incomeResponse] = await Promise.all([
+        caller.useExpenses.getPeriodStats(range),
+        caller.useIncomes.getPeriodStats(range),
+      ]);
 
       if (!response.result) {
         return {
@@ -131,10 +154,21 @@ export const expenseTools = {
         };
       }
 
+      const income = incomeResponse.result;
+
       return {
         ok: true as const,
         totalSpent: response.result.totalSpent,
         expenseCount: response.result.expenseCount,
+        income: {
+          net: income?.net ?? 0,
+          base: income?.base ?? 0,
+          iva: income?.iva ?? 0,
+          isr: income?.isr ?? 0,
+          count: income?.incomeCount ?? 0,
+        },
+        /** Neto cobrado menos gastado: el dinero que sobra del periodo. */
+        balance: (income?.net ?? 0) - response.result.totalSpent,
         byCategory: response.result.categoryStats
           .map((stat) => ({
             categoryId: stat.category.id,
@@ -172,10 +206,14 @@ export const expenseTools = {
       const query = search?.trim().toLowerCase();
       const expenses = (response.result ?? []).filter((expense) => {
         if (!query) return true;
-        return (
-          expense.description?.toLowerCase().includes(query) ??
-          expense.category.name.toLowerCase().includes(query)
-        );
+        // Con `??` un gasto que sí tiene descripción nunca llegaba a comparar
+        // el nombre de la categoría: buscar "comida" no encontraba nada.
+        const matchesDescription =
+          expense.description?.toLowerCase().includes(query) === true;
+        const matchesCategory = expense.category.name
+          .toLowerCase()
+          .includes(query);
+        return matchesDescription || matchesCategory;
       });
 
       return {
@@ -204,7 +242,9 @@ export const expenseTools = {
       amount: z.number().positive().describe("Monto total del gasto."),
       categoryId: z
         .string()
-        .describe("Id de una categoría existente, tal cual aparece en la lista."),
+        .describe(
+          "Id de una categoría existente, tal cual aparece en la lista.",
+        ),
       date: dateInput.describe("Fecha del gasto. Usa hoy si no la sabes."),
       description: z
         .string()
@@ -339,6 +379,134 @@ export const expenseTools = {
     },
   }),
 
+  /* ------------------------------------------------------------- ingresos */
+
+  listIncomes: tool({
+    description:
+      "Busca ingresos cobrados en el periodo. Filtra por texto en el concepto. Úsala antes de editar o borrar para obtener el id correcto.",
+    inputSchema: z.object({
+      ...periodRange,
+      search: z.string().optional().describe("Texto a buscar en el concepto."),
+      limit: z.number().int().min(1).max(50).default(10),
+    }),
+    execute: async ({ search, limit, ...range }) => {
+      const caller = await getCaller();
+      const response = await caller.useIncomes.getAll(resolveRange(range));
+
+      const query = search?.trim().toLowerCase();
+      const incomes = (response.result ?? []).filter((income) => {
+        if (!query) return true;
+        return income.description?.toLowerCase().includes(query) === true;
+      });
+
+      return {
+        total: incomes.length,
+        incomes: incomes.slice(0, limit).map(toChatIncome),
+      };
+    },
+  }),
+
+  createIncome: tool({
+    description:
+      "Registra un cobro. `amount` es la BASE antes de impuestos: en una factura es el subtotal, nunca el total. `iva` e `isr` van aparte y son opcionales.",
+    inputSchema: z.object({
+      amount: z
+        .number()
+        .positive()
+        .describe(
+          "Lo cobrado antes de impuestos. En una factura es el subtotal, no el total ni el depósito.",
+        ),
+      iva: z
+        .number()
+        .nonnegative()
+        .optional()
+        .describe(
+          "IVA trasladado, el que se suma a la base. Omítelo si el cobro no se facturó.",
+        ),
+      isr: z
+        .number()
+        .nonnegative()
+        .optional()
+        .describe(
+          "ISR retenido por quien paga, el que se resta. Omítelo si no hubo retención.",
+        ),
+      date: dateInput.describe("Fecha del cobro. Usa hoy si no la sabes."),
+      description: z
+        .string()
+        .max(120)
+        .optional()
+        .describe("Concepto o cliente, por ejemplo 'Factura 128, rediseño'."),
+    }),
+    execute: async ({ amount, iva, isr, date, description }) => {
+      const caller = await getCaller();
+      const response = await caller.useIncomes.create({
+        amount,
+        iva: iva ?? null,
+        isr: isr ?? null,
+        description: description ?? null,
+        date: toLocalDate(date),
+      });
+
+      if (!response.result) {
+        return { ok: false as const, error: response.message };
+      }
+
+      return { ok: true as const, income: toChatIncome(response.result) };
+    },
+  }),
+
+  updateIncome: tool({
+    description:
+      "Modifica un ingreso existente. Manda sólo los campos que cambian; obtén el id con listIncomes. Manda null en `iva` o `isr` para borrar ese impuesto.",
+    inputSchema: z.object({
+      id: z.string(),
+      amount: z.number().positive().optional(),
+      iva: z.number().nonnegative().nullable().optional(),
+      isr: z.number().nonnegative().nullable().optional(),
+      date: dateInput.optional(),
+      description: z.string().max(120).nullable().optional(),
+    }),
+    execute: async ({ id, amount, iva, isr, date, description }) => {
+      const caller = await getCaller();
+      const response = await caller.useIncomes.update({
+        id,
+        amount,
+        iva,
+        isr,
+        date: date ? toLocalDate(date) : undefined,
+        description,
+      });
+
+      if (!response.result) {
+        return { ok: false as const, error: response.message };
+      }
+
+      return { ok: true as const, income: toChatIncome(response.result) };
+    },
+  }),
+
+  deleteIncome: tool({
+    description:
+      "Elimina un ingreso de forma permanente. Obtén el id con listIncomes y confirma con el usuario cuál es.",
+    inputSchema: z.object({
+      id: z.string(),
+      /** Sólo para que la tarjeta de confirmación diga qué se va a borrar. */
+      label: z
+        .string()
+        .describe("Concepto corto del ingreso, para mostrarlo al confirmar."),
+    }),
+    execute: async ({ id }) => {
+      const caller = await getCaller();
+      const response = await caller.useIncomes.delete({ id });
+
+      if (!response.result) {
+        return { ok: false as const, error: "No se pudo eliminar el ingreso." };
+      }
+
+      return { ok: true as const, income: toChatIncome(response.result) };
+    },
+  }),
+
   createCategory: tool({
     description:
       "Crea una categoría nueva. Úsala sólo cuando ninguna de las existentes encaje con el gasto.",
@@ -378,9 +546,12 @@ export const expenseTools = {
 };
 
 /** Escrituras: siempre pasan por la confirmación del usuario en el chat. */
-export const EXPENSE_TOOL_APPROVAL = {
+export const CHAT_TOOL_APPROVAL = {
   createExpense: "user-approval",
   updateExpense: "user-approval",
   deleteExpense: "user-approval",
+  createIncome: "user-approval",
+  updateIncome: "user-approval",
+  deleteIncome: "user-approval",
   createCategory: "user-approval",
 } as const;

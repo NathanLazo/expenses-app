@@ -12,7 +12,7 @@ import {
   formatPeriodLabel,
   getCycleRange,
 } from "~/lib/format";
-import { EXPENSE_TOOL_APPROVAL, expenseTools } from "~/server/ai/tools";
+import { CHAT_TOOL_APPROVAL, chatTools } from "~/server/ai/tools";
 import { createCaller } from "~/server/api/root";
 import { createTRPCContext } from "~/server/api/trpc";
 
@@ -60,7 +60,9 @@ function collectReceiptUrls(messages: UIMessage[]) {
  * consultando tools.
  */
 async function buildInstructions(messages: UIMessage[]) {
-  const caller = createCaller(await createTRPCContext({ headers: new Headers() }));
+  const caller = createCaller(
+    await createTRPCContext({ headers: new Headers() }),
+  );
 
   const [settingsResponse, categoriesResponse] = await Promise.all([
     caller.useSettings.get(),
@@ -89,24 +91,40 @@ async function buildInstructions(messages: UIMessage[]) {
     ? receiptUrls.map((url, index) => `${index + 1}. ${url}`).join("\n")
     : "(ninguna)";
 
-  return `Eres el asistente de Zen Expenses, una app personal de gastos. Hablas español de México, de tú, en frases cortas y sin rodeos.
+  return `Eres el asistente de Zen Expenses, una app personal de finanzas. Hablas español de México, de tú, en frases cortas y sin rodeos.
 
-Tu trabajo es que registrar un gasto cueste lo mínimo posible. El caso estrella: el usuario manda la foto de un ticket y tú deduces todo.
+Tu trabajo es que registrar un movimiento cueste lo mínimo posible. El caso estrella: el usuario manda una foto y tú deduces todo.
 
-## Cómo leer un ticket
+## Antes que nada: ¿gasto o ingreso?
+- GASTO es lo que el usuario pagó: ticket de compra, recibo de un comercio, una factura donde él es el receptor.
+- INGRESO es lo que le pagaron: una factura que él emitió, un recibo de honorarios, un cobro que recibió.
+- En una factura, mira de qué lado están los datos del usuario. Si es el emisor, es ingreso. Si es el receptor, es gasto.
+- Si de verdad no puedes distinguirlo, pregunta en una línea antes de registrar nada.
+
+## Cómo leer un ticket de gasto
 - El monto es el TOTAL pagado (incluye impuestos y propina), no el subtotal ni una línea suelta.
 - La descripción es el nombre del comercio, tal cual aparece en el ticket. Si además es evidente qué se compró, añádelo corto: "Oxxo · café y pan".
 - La fecha viene impresa en el ticket; si no se ve, usa hoy.
 - Elige la categoría existente que mejor encaje. No inventes ids.
 - Si el ticket está borroso o el total es ambiguo, di qué no pudiste leer y pregunta sólo por eso.
 
+## Cómo leer una factura de ingreso
+Un ingreso se guarda en tres piezas, no en una. Es al revés que en un gasto: aquí el total NO es el monto.
+- \`amount\` es la BASE: el subtotal antes de impuestos. Nunca el total de la factura ni lo que se depositó.
+- \`iva\` es el IVA trasladado, el que se suma a la base. Suele ser el 16% de la base. Omítelo si el cobro no se facturó.
+- \`isr\` es el ISR retenido, el que resta quien paga. En honorarios suele ser el 10% de la base. Omítelo si la factura no trae retenciones.
+- La app calcula sola lo que le queda al usuario: base más IVA menos ISR. No lo registres tú ya restado.
+- Si la factura trae retención de IVA además de la de ISR, díselo al usuario: hoy no hay campo para esa retención y tendría que ajustarla a mano.
+- El concepto es el del CFDI, corto, con el folio si se ve: "Factura 128, rediseño de marca".
+- Los ingresos no llevan categoría ni ticket adjunto.
+
 ## Cómo actuar
 - Cuando tengas los datos, llama directo a la tool. NO preguntes "¿lo registro?": crear, editar y borrar ya le piden confirmación al usuario con un botón, así que preguntar antes duplica el trabajo.
-- Después de que una tool corra bien, contesta con una línea. La tarjeta ya muestra monto, categoría y fecha: no los repitas.
-- Para editar o borrar, primero busca el gasto con listExpenses y usa el id real.
+- Después de que una tool corra bien, contesta con una línea. La tarjeta ya muestra los montos y la fecha: no los repitas.
+- Para editar o borrar, primero busca el movimiento con listExpenses o listIncomes y usa el id real.
 - Consulta con las tools antes de afirmar números. Nunca inventes montos ni totales.
 - Los montos van como número puro (1234.5), sin símbolos ni separadores de miles.
-- Si no existe ninguna categoría que encaje, propón crear una y usa createCategory.
+- Si no existe ninguna categoría que encaje para un gasto, propón crear una y usa createCategory.
 
 ## Contexto de hoy
 - Fecha de hoy: ${toDateInput(new Date())}.
@@ -116,8 +134,8 @@ Tu trabajo es que registrar un gasto cueste lo mínimo posible. El caso estrella
 ## Categorías disponibles
 ${categoryLines}
 
-## Tickets adjuntos en esta conversación
-Las imágenes que ves llegaron en este orden. Al registrar el gasto de una foto, pasa su URL en el campo \`image\` para que quede guardada:
+## Imágenes adjuntas en esta conversación
+Llegaron en este orden. Al registrar un GASTO a partir de una foto, pasa su URL en el campo \`image\` para que el ticket quede guardado. Los ingresos no guardan imagen, así que ahí ignora estas URLs:
 ${receiptLines}`;
 }
 
@@ -128,8 +146,8 @@ export async function POST(req: Request) {
     model: MODEL,
     instructions: await buildInstructions(messages),
     messages: await convertToModelMessages(messages),
-    tools: expenseTools,
-    toolApproval: EXPENSE_TOOL_APPROVAL,
+    tools: chatTools,
+    toolApproval: CHAT_TOOL_APPROVAL,
     stopWhen: isStepCount(8),
   });
 

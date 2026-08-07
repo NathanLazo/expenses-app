@@ -11,6 +11,27 @@ import { sumIncomeTotals } from "~/lib/income";
  */
 const taxInput = z.number().nonnegative().nullish();
 
+/**
+ * Un ISR mayor a lo facturado dejaría un neto negativo, que no describe ningún
+ * cobro real. La regla vive aquí y no sólo en el formulario porque el chat
+ * llama a estos mismos procedimientos y no debe poder saltársela.
+ */
+function retentionExceedsInvoice(
+  amount: number,
+  iva: number | null,
+  isr: number | null,
+) {
+  if (isr === null) return false;
+  return isr > amount + (iva ?? 0);
+}
+
+const RETENTION_ERROR = {
+  result: null,
+  status: 400,
+  error: "Retention exceeds invoiced total",
+  message: "La retención no puede ser mayor al total facturado",
+} as const;
+
 export const useIncomes = createTRPCRouter({
   create: publicProcedure
     .input(
@@ -24,6 +45,16 @@ export const useIncomes = createTRPCRouter({
     )
     .mutation(async ({ input, ctx }) => {
       try {
+        if (
+          retentionExceedsInvoice(
+            input.amount,
+            input.iva ?? null,
+            input.isr ?? null,
+          )
+        ) {
+          return RETENTION_ERROR;
+        }
+
         const income = await ctx.db.income.create({
           data: {
             amount: input.amount,
@@ -100,6 +131,32 @@ export const useIncomes = createTRPCRouter({
           description === undefined
             ? rest
             : { ...rest, description: description?.trim() ?? null };
+
+        // La edición es parcial, así que la regla se valida sobre el resultado
+        // final: lo que llega en el input mezclado con lo que ya estaba.
+        const current = await ctx.db.income.findUnique({
+          where: { id },
+          select: { amount: true, iva: true, isr: true },
+        });
+
+        if (!current) {
+          return {
+            result: null,
+            status: 404,
+            error: "Income not found",
+            message: "Income not found",
+          };
+        }
+
+        if (
+          retentionExceedsInvoice(
+            input.amount ?? current.amount,
+            input.iva === undefined ? current.iva : (input.iva ?? null),
+            input.isr === undefined ? current.isr : (input.isr ?? null),
+          )
+        ) {
+          return RETENTION_ERROR;
+        }
 
         const income = await ctx.db.income.update({
           where: { id },

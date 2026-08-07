@@ -1,12 +1,12 @@
 import type { InferUITools, UIDataTypes, UIMessage } from "ai";
 
-import type { expenseTools } from "~/server/ai/tools";
+import type { chatTools } from "~/server/ai/tools";
 
 /**
  * Tipos de las tools inferidos del servidor. El import es `import type`, así que
  * desaparece al compilar y el bundle del cliente nunca toca Prisma ni tRPC.
  */
-export type ChatTools = InferUITools<typeof expenseTools>;
+export type ChatTools = InferUITools<typeof chatTools>;
 
 export type ChatUIMessage = UIMessage<never, UIDataTypes, ChatTools>;
 
