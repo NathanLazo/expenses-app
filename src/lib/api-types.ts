@@ -5,6 +5,11 @@ export type ExpenseWithCategory = NonNullable<
   RouterOutputs["useExpenses"]["getAll"]["result"]
 >[number];
 
+/** Ingreso tal como lo devuelve el router, con su IVA e ISR opcionales. */
+export type Income = NonNullable<
+  RouterOutputs["useIncomes"]["getAll"]["result"]
+>[number];
+
 /** Categoría con el conteo de gastos y los del mes en curso. */
 export type CategoryWithStats = NonNullable<
   RouterOutputs["useCategories"]["getAll"]["result"]

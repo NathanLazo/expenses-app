@@ -3,9 +3,11 @@
 import Link from "next/link";
 import {
   ArrowRight,
+  Banknote,
   ChartPie,
   Plus,
   Receipt,
+  Scale,
   Tags,
   TrendingUp,
   Wallet,
@@ -54,8 +56,11 @@ export default function Dashboard() {
     api.useExpenses.getPeriodStats.useQuery({ from, to });
   const { data: expensesResponse, isLoading: expensesLoading } =
     api.useExpenses.getAll.useQuery({ from, to });
+  const { data: incomeResponse, isLoading: incomeLoading } =
+    api.useIncomes.getPeriodStats.useQuery({ from, to });
 
   const stats = statsResponse?.result;
+  const income = incomeResponse?.result;
   const categories = categoriesResponse?.result ?? [];
   const recentExpenses = (expensesResponse?.result ?? []).slice(0, 5);
 
@@ -67,6 +72,11 @@ export default function Dashboard() {
 
   const budgetUsed = monthlyBudget ? (totalSpent / monthlyBudget) * 100 : 0;
   const isOverBudget = monthlyBudget !== null && totalSpent > monthlyBudget;
+
+  // El balance se calcula sobre el neto (ya sin retenciones), que es el dinero
+  // con el que realmente se pagan los gastos.
+  const netIncome = income?.net ?? 0;
+  const balance = netIncome - totalSpent;
 
   const chartData = categoryStats.map((stat) => ({
     category: stat.category.name,
@@ -82,19 +92,40 @@ export default function Dashboard() {
     return config;
   }, {});
 
-  const isLoading = statsLoading || expensesLoading || categoriesLoading;
+  const isLoading =
+    statsLoading || expensesLoading || categoriesLoading || incomeLoading;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <MonthSwitcher />
-        <Button onClick={openCreate}>
-          <Plus className="mr-1 size-4" />
-          Nuevo gasto
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <Link href="/income">
+              <Plus className="mr-1 size-4" />
+              Nuevo ingreso
+            </Link>
+          </Button>
+          <Button onClick={openCreate}>
+            <Plus className="mr-1 size-4" />
+            Nuevo gasto
+          </Button>
+        </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <StatCard
+          title="Ingresos netos"
+          value={formatAmount(netIncome)}
+          hint={
+            income?.isr
+              ? `Ya sin ${formatAmount(income.isr)} de ISR retenido`
+              : "Lo que cobraste en el periodo"
+          }
+          icon={Banknote}
+          isLoading={isLoading}
+        />
+
         <StatCard
           title="Total gastado"
           value={formatAmount(totalSpent)}
@@ -115,6 +146,18 @@ export default function Dashboard() {
             </div>
           ) : null}
         </StatCard>
+
+        <StatCard
+          title="Balance"
+          value={formatAmount(balance)}
+          hint={
+            balance < 0
+              ? "Gastaste más de lo que cobraste"
+              : "Ingresos netos menos gastos"
+          }
+          icon={Scale}
+          isLoading={isLoading}
+        />
 
         <StatCard
           title="Transacciones"
