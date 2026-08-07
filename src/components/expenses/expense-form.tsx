@@ -40,6 +40,7 @@ import { Textarea } from "~/components/ui/textarea";
 import { useAppSettings } from "~/hooks/use-app-settings";
 import type { CategoryWithStats } from "~/lib/api-types";
 import { formatLongDate } from "~/lib/format";
+import { ivaIncludedIn } from "~/lib/income";
 import { cn } from "~/lib/utils";
 import { es } from "date-fns/locale";
 
@@ -49,6 +50,11 @@ const expenseFormSchema = z.object({
     .min(1, "Ingresa un monto")
     .refine((value) => Number.parseFloat(value) > 0, {
       message: "El monto debe ser mayor a 0",
+    }),
+  iva: z
+    .string()
+    .refine((value) => value === "" || Number.parseFloat(value) >= 0, {
+      message: "No puede ser negativo",
     }),
   description: z.string().trim().max(120, "Máximo 120 caracteres"),
   categoryId: z.string().min(1, "Selecciona una categoría"),
@@ -60,6 +66,7 @@ export type ExpenseFormValues = z.infer<typeof expenseFormSchema>;
 
 export type ExpenseSubmitValues = {
   amount: number;
+  iva: number | null;
   description: string | null;
   categoryId: string;
   date: Date;
@@ -92,6 +99,7 @@ export function ExpenseForm({
     resolver: zodResolver(expenseFormSchema),
     defaultValues: {
       amount: "",
+      iva: "",
       description: "",
       categoryId: "",
       date: new Date(),
@@ -122,6 +130,7 @@ export function ExpenseForm({
   const handleSubmit = form.handleSubmit((values) =>
     onSubmit({
       amount: Number.parseFloat(values.amount),
+      iva: values.iva.trim() === "" ? null : Number.parseFloat(values.iva),
       description: values.description.trim() || null,
       categoryId: values.categoryId,
       date: values.date,
@@ -184,6 +193,50 @@ export function ExpenseForm({
             )}
           />
         </div>
+
+        <FormField
+          control={form.control}
+          name="iva"
+          render={({ field }) => {
+            const total = Number.parseFloat(form.watch("amount"));
+            const hasTotal = Number.isFinite(total) && total > 0;
+
+            return (
+              <FormItem>
+                <div className="flex items-center justify-between gap-2">
+                  <FormLabel>IVA acreditable</FormLabel>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="h-auto px-2 py-1 text-xs"
+                    disabled={!hasTotal}
+                    aria-label="Calcular el IVA contenido en el monto pagado"
+                    onClick={() => field.onChange(String(ivaIncludedIn(total)))}
+                  >
+                    Sacar del total
+                  </Button>
+                </div>
+                <FormControl>
+                  <Input
+                    {...field}
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    className="tabular-nums"
+                  />
+                </FormControl>
+                <FormDescription>
+                  Opcional, sólo si el gasto está facturado. Va incluido en el
+                  monto, no se suma. Sirve para estimar cuánto apartar de IVA.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            );
+          }}
+        />
 
         <FormField
           control={form.control}

@@ -52,6 +52,15 @@ export function roundToCents(value: number) {
   return Math.round(value * 100) / 100;
 }
 
+/**
+ * IVA contenido en un total que ya lo incluye. Es el caso del gasto, donde se
+ * captura lo pagado en la caja: si el total es 116, el IVA es 16, no 18.56.
+ * En el ingreso pasa al revés, porque ahí la base va sin impuestos.
+ */
+export function ivaIncludedIn(total: number) {
+  return roundToCents((total * IVA_RATE) / (1 + IVA_RATE));
+}
+
 export type IncomeTotals = {
   base: number;
   iva: number;

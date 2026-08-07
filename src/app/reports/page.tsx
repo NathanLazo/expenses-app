@@ -3,9 +3,11 @@
 import {
   ChartColumnBig,
   DollarSign,
+  Landmark,
   Receipt,
   TrendingUp,
   Trophy,
+  Users,
 } from "lucide-react";
 import {
   Area,
@@ -54,11 +56,20 @@ import {
 } from "~/components/ui/table";
 import { useAppSettings } from "~/hooks/use-app-settings";
 import { formatDayTick, formatPercent } from "~/lib/format";
+import { Skeleton } from "~/components/ui/skeleton";
 import { api } from "~/trpc/react";
 
 export default function ReportsPage() {
-  const { from, to, label, isCurrentPeriod, totalDays, daysElapsed } =
-    usePeriod();
+  const {
+    from,
+    to,
+    label,
+    month,
+    year,
+    isCurrentPeriod,
+    totalDays,
+    daysElapsed,
+  } = usePeriod();
   const { formatAmount, formatCompactAmount } = useAppSettings();
 
   const { data: categoriesResponse } = api.useCategories.getAll.useQuery();
@@ -66,6 +77,36 @@ export default function ReportsPage() {
     api.useExpenses.getPeriodStats.useQuery({ from, to });
   const { data: expensesResponse, isLoading: expensesLoading } =
     api.useExpenses.getAll.useQuery({ from, to });
+
+  // La tendencia se ancla al periodo que el usuario tiene seleccionado: si
+  // navega a marzo, la serie termina en marzo. Los parámetros son primitivas,
+  // así que React Query cachea una entrada por ancla.
+  const { data: trendResponse, isLoading: trendLoading } =
+    api.useAnalytics.getTrend.useQuery({
+      count: 6,
+      anchorMonth: month,
+      anchorYear: year,
+    });
+  const { data: byClientResponse, isLoading: byClientLoading } =
+    api.useAnalytics.getIncomeByClient.useQuery({ from, to });
+  const { data: reserveResponse, isLoading: reserveLoading } =
+    api.useAnalytics.getTaxReserve.useQuery({ from, to });
+
+  const trend = trendResponse?.result?.cycles ?? [];
+  const byClient = byClientResponse?.result;
+  const reserve = reserveResponse?.result;
+
+  const trendChartData = trend.map((cycle) => ({
+    label: cycle.label,
+    ingreso: cycle.income.net,
+    gasto: cycle.expenses.total,
+    isPartial: cycle.isPartial,
+  }));
+
+  const trendChartConfig: ChartConfig = {
+    ingreso: { label: "Ingreso neto", color: "var(--chart-1)" },
+    gasto: { label: "Gasto", color: "var(--chart-3)" },
+  };
 
   const isLoading = statsLoading || expensesLoading;
   const stats = statsResponse?.result;
@@ -201,6 +242,212 @@ export default function ReportsPage() {
           isLoading={isLoading}
         />
       </div>
+
+      {/* Los bloques de ingreso van antes del corte por `hasData`, que sólo
+          mira gastos: sin gastos pero con cobros, esta parte sigue teniendo
+          algo que contar. */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Ingreso contra gasto</CardTitle>
+            <CardDescription>
+              Los últimos 6 periodos hasta {label.toLowerCase()}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {trendLoading ? (
+              <Skeleton className="h-[260px] w-full rounded-lg" />
+            ) : trendChartData.length === 0 ? (
+              <EmptyState
+                icon={TrendingUp}
+                title="Todavía no hay serie"
+                description="Registra movimientos para ver cómo evolucionan tus periodos."
+              />
+            ) : (
+              <ChartContainer
+                config={trendChartConfig}
+                className="max-h-[340px] w-full"
+              >
+                <BarChart data={trendChartData} accessibilityLayer>
+                  <CartesianGrid vertical={false} />
+                  <XAxis
+                    dataKey="label"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                    tickFormatter={(value: string) => value.slice(0, 6)}
+                  />
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    width={64}
+                    tickFormatter={(value: number) =>
+                      formatCompactAmount(value)
+                    }
+                  />
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent
+                        formatter={moneyTooltipFormatter(
+                          trendChartConfig,
+                          formatAmount,
+                        )}
+                      />
+                    }
+                  />
+                  <ChartLegend content={<ChartLegendContent />} />
+                  {/* El ciclo en curso va atenuado: sin eso su media barra
+                      parece una caída real frente a los periodos cerrados. */}
+                  <Bar dataKey="ingreso" fill="var(--color-ingreso)" radius={4}>
+                    {trendChartData.map((entry) => (
+                      <Cell
+                        key={entry.label}
+                        fillOpacity={entry.isPartial ? 0.45 : 1}
+                      />
+                    ))}
+                  </Bar>
+                  <Bar dataKey="gasto" fill="var(--color-gasto)" radius={4}>
+                    {trendChartData.map((entry) => (
+                      <Cell
+                        key={entry.label}
+                        fillOpacity={entry.isPartial ? 0.45 : 1}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ChartContainer>
+            )}
+            {trend.some((cycle) => cycle.isPartial) ? (
+              <p className="text-muted-foreground mt-3 text-xs">
+                El periodo en curso va atenuado porque todavía no cierra.
+              </p>
+            ) : null}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Landmark className="text-brand size-4 shrink-0" />
+              Apartado sugerido
+            </CardTitle>
+            <CardDescription>
+              Del IVA que cobraste en {label.toLowerCase()}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {reserveLoading ? (
+              <>
+                <Skeleton className="h-8 w-32" />
+                <Skeleton className="h-20 w-full" />
+              </>
+            ) : reserve ? (
+              <>
+                <p className="text-2xl font-semibold tabular-nums">
+                  {formatAmount(reserve.reservaSugerida)}
+                </p>
+                <dl className="space-y-1 text-sm">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <dt className="text-muted-foreground">IVA que cobraste</dt>
+                    <dd className="tabular-nums">
+                      {formatAmount(reserve.ivaTrasladadoCobrado)}
+                    </dd>
+                  </div>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <dt className="text-muted-foreground">
+                      IVA de gastos capturado
+                    </dt>
+                    <dd className="tabular-nums">
+                      - {formatAmount(reserve.ivaAcreditableCapturado)}
+                    </dd>
+                  </div>
+                </dl>
+
+                <p className="text-muted-foreground text-xs">
+                  {reserve.coverage.expensesConIvaCapturado} de{" "}
+                  {reserve.coverage.expensesInRange} gastos del periodo tienen
+                  IVA capturado.
+                </p>
+
+                {/* Las salvedades vienen del servidor y se muestran siempre,
+                    no detrás de un tooltip: son lo que impide leer esta cifra
+                    como un monto a declarar. */}
+                <ul className="text-muted-foreground space-y-1.5 border-t pt-3 text-xs">
+                  {reserve.disclaimers.map((line) => (
+                    <li key={line}>{line}</li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <p className="text-muted-foreground text-sm">
+                No pudimos calcular el apartado de este periodo.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>De dónde vino el dinero</CardTitle>
+          <CardDescription>
+            Reparto del ingreso neto de {label.toLowerCase()} por cliente
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {byClientLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <Skeleton key={index} className="h-10 rounded-lg" />
+              ))}
+            </div>
+          ) : !byClient || byClient.clients.length === 0 ? (
+            <EmptyState
+              icon={Users}
+              title="Sin cobros en el periodo"
+              description="Cuando registres ingresos verás aquí de qué cliente vino cada peso."
+            />
+          ) : (
+            <ul className="space-y-3">
+              {byClient.clients.map((client) => (
+                <li
+                  key={client.clientId ?? "sin-cliente"}
+                  className="space-y-1.5"
+                >
+                  <div className="flex items-baseline justify-between gap-2 text-sm">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span aria-hidden>{client.icon ?? "•"}</span>
+                      <span className="truncate">{client.name}</span>
+                      <span className="text-muted-foreground shrink-0 text-xs">
+                        {client.count} {client.count === 1 ? "cobro" : "cobros"}
+                      </span>
+                    </span>
+                    <span className="shrink-0 font-medium tabular-nums">
+                      {formatAmount(client.net)}
+                    </span>
+                  </div>
+                  <div
+                    className="bg-muted h-1.5 w-full overflow-hidden rounded-full"
+                    role="progressbar"
+                    aria-valuenow={Math.round(client.share)}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-label={`${client.name}: ${formatPercent(client.share)} del ingreso`}
+                  >
+                    <div
+                      className="h-full rounded-full transition-[width] duration-300 motion-reduce:transition-none"
+                      style={{
+                        width: `${Math.max(client.share, 0)}%`,
+                        backgroundColor: client.color ?? "var(--chart-3)",
+                      }}
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
 
       {!isLoading && !hasData ? (
         <Card>
