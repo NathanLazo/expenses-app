@@ -189,5 +189,5 @@ export function formatPeriodLabel(
   }
 
   const lastDay = new Date(end.getTime() - MS_PER_DAY);
-  return `${format(start, "d MMM", { locale: es })} – ${format(lastDay, "d MMM", { locale: es })}`;
+  return `${format(start, "d MMM", { locale: es })} - ${format(lastDay, "d MMM", { locale: es })}`;
 }

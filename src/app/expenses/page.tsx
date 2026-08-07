@@ -108,7 +108,7 @@ export default function ExpensesPage() {
               <Input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Buscar por descripción o categoría..."
+                placeholder="Buscar por descripción o categoría…"
                 className="pl-9"
                 aria-label="Buscar gastos"
               />

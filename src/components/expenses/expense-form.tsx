@@ -365,9 +365,9 @@ export function ExpenseForm({
           </Button>
           <Button type="submit" disabled={Boolean(isPending) || isUploading}>
             {isPending
-              ? "Guardando..."
+              ? "Guardando…"
               : isUploading
-                ? "Subiendo ticket..."
+                ? "Subiendo ticket…"
                 : submitLabel}
           </Button>
         </div>

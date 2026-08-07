@@ -580,9 +580,9 @@ export function IncomeForm({
           </Button>
           <Button type="submit" disabled={Boolean(isPending) || isUploading}>
             {isPending
-              ? "Guardando..."
+              ? "Guardando…"
               : isUploading
-                ? "Subiendo factura..."
+                ? "Subiendo factura…"
                 : submitLabel}
           </Button>
         </div>

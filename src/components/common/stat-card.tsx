@@ -42,7 +42,13 @@ export function StatCard({
           </>
         ) : (
           <>
-            <div className="text-2xl font-semibold tabular-nums">
+            {/* `truncate`: no todos los valores son montos. "Categoría con más
+                gasto" imprime un nombre libre de hasta 40 caracteres y a 24px
+                desbordaba la tarjeta. */}
+            <div
+              className="truncate text-2xl font-semibold tabular-nums"
+              title={value}
+            >
               {value}
             </div>
             {hint ? (

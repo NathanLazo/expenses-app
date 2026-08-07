@@ -219,7 +219,7 @@ export default function ReportsPage() {
         />
         <StatCard
           title="Categoría con más gasto"
-          value={categoryStats[0]?.category.name ?? "—"}
+          value={categoryStats[0]?.category.name ?? "-"}
           hint={
             categoryStats[0]
               ? formatAmount(categoryStats[0].total)
@@ -231,7 +231,7 @@ export default function ReportsPage() {
         <StatCard
           title="Presupuesto usado"
           value={
-            totalBudget ? formatPercent((totalSpent / totalBudget) * 100) : "—"
+            totalBudget ? formatPercent((totalSpent / totalBudget) * 100) : "-"
           }
           hint={
             totalBudget
@@ -721,7 +721,7 @@ export default function ReportsPage() {
                           <TableCell className="text-muted-foreground text-right tabular-nums">
                             {stat.category.budget
                               ? formatAmount(stat.category.budget)
-                              : "—"}
+                              : "-"}
                           </TableCell>
                           <TableCell className="text-right tabular-nums">
                             {formatPercent(share)}

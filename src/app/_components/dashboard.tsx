@@ -140,7 +140,7 @@ export default function Dashboard() {
                 aria-label={`Presupuesto usado: ${formatPercent(budgetUsed)} de ${formatAmount(monthlyBudget)}`}
                 className={isOverBudget ? "[&>div]:bg-destructive" : undefined}
               />
-              <p className="text-muted-foreground text-xs">
+              <p className="text-muted-foreground text-xs tabular-nums">
                 {formatPercent(budgetUsed)} de {formatAmount(monthlyBudget)}
               </p>
             </div>

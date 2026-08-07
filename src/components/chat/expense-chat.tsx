@@ -81,7 +81,8 @@ export function ExpenseChat() {
     const container = scrollRef.current;
     if (!container) return;
     stickToBottom.current =
-      container.scrollHeight - container.scrollTop - container.clientHeight < 80;
+      container.scrollHeight - container.scrollTop - container.clientHeight <
+      80;
   }, []);
 
   const submit = useCallback(
@@ -172,7 +173,7 @@ export function ExpenseChat() {
             {error ? (
               <div
                 role="alert"
-                className="border-destructive/40 bg-destructive/5 flex flex-col gap-3 rounded-2xl border p-3 sm:flex-row sm:items-center"
+                className="border-destructive/40 bg-destructive/5 flex flex-col gap-3 rounded-xl border p-3 sm:flex-row sm:items-center"
               >
                 <p className="text-destructive flex flex-1 items-start gap-2 text-sm">
                   <AlertTriangle className="mt-0.5 size-4 shrink-0" />
@@ -213,13 +214,13 @@ function ThinkingIndicator() {
   return (
     <p className="text-muted-foreground chat-enter flex items-center gap-1.5 text-sm">
       <span aria-hidden className="flex gap-1">
-        <span className="chat-thinking-dot bg-current size-1.5 rounded-full" />
+        <span className="chat-thinking-dot size-1.5 rounded-full bg-current" />
         <span
-          className="chat-thinking-dot bg-current size-1.5 rounded-full"
+          className="chat-thinking-dot size-1.5 rounded-full bg-current"
           style={{ animationDelay: "150ms" }}
         />
         <span
-          className="chat-thinking-dot bg-current size-1.5 rounded-full"
+          className="chat-thinking-dot size-1.5 rounded-full bg-current"
           style={{ animationDelay: "300ms" }}
         />
       </span>
@@ -244,7 +245,9 @@ function EmptyChat({
         >
           <Sparkles className="size-5" />
         </span>
-        <h2 className="text-lg font-semibold">Registra un gasto en 5 segundos</h2>
+        <h2 className="text-lg font-semibold">
+          Registra un gasto en 5 segundos
+        </h2>
         <p className="text-muted-foreground mx-auto max-w-sm text-sm">
           Sube la foto de un ticket y deduzco el monto, el comercio y la
           categoría. También puedes pedirme cuentas del periodo.
@@ -262,7 +265,7 @@ function EmptyChat({
             <button
               type="button"
               onClick={() => onPickSuggestion(suggestion)}
-              className="bg-card hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring rounded-full border px-3 py-1.5 text-sm shadow-sm transition-[background-color,color,scale] duration-150 active:scale-[0.96] focus-visible:ring-[3px] focus-visible:outline-none motion-reduce:transition-none motion-reduce:active:scale-100"
+              className="bg-card hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring rounded-full border px-3 py-1.5 text-sm transition-[background-color,color,scale] duration-150 focus-visible:ring-[3px] focus-visible:outline-none active:scale-[0.96] motion-reduce:transition-none motion-reduce:active:scale-100"
             >
               {suggestion}
             </button>

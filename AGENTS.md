@@ -94,10 +94,16 @@ Dos desviaciones deliberadas respecto a `DESIGN.md`, ambas por contraste:
 viene del borde y del fondo. Las sombras se reservan para lo que flota de verdad
 sobre el contenido (diálogos, popovers, dropdowns, el botón flotante móvil).
 
-**Tipografía.** `system-ui`, sin descarga de fuente. Cuerpo 16px / 1.5. La
-jerarquía se controla con peso y color, no con escalas gigantes ni
-`tracking-tight`. Hay utilidades `text-display` (48/700) y `text-heading`
-(32/600) para títulos de página.
+**Tipografía.** Space Grotesk vía `next/font` (auto-alojada, variable 300-700),
+con la pila del sistema como respaldo. Es una desviación deliberada del
+`system-ui` que pide `DESIGN.md`. Cuerpo 16px / 1.5. La jerarquía se controla
+con peso y color, no con escalas gigantes ni `tracking-tight`. Hay utilidades
+`text-display` (48/700) y `text-heading` (32/600) para títulos de página.
+
+Sus cifras son **proporcionales** por defecto (el `1` mide 404 unidades contra
+638 del `0`), pero trae la feature `tnum`. Cualquier número que se lea en
+columna o que cambie en vivo necesita `tabular-nums` de forma explícita, o los
+montos bailan.
 
 **Espaciado.** Rejilla de 8px: usa utilidades pares (`gap-2` 8px, `gap-4` 16px,
 `gap-6` 24px, `gap-8` 32px). Evita `gap-3` / `p-3` en layout nuevo.

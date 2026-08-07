@@ -17,11 +17,16 @@
  */
 
 @theme {
-  /* DESIGN.md especifica system-ui: cero descarga de fuente, render nativo. */
+  /*
+   * Space Grotesk, servida por `next/font` desde el propio dominio (ver
+   * `src/app/layout.tsx`). Se aparta del system-ui de DESIGN.md por decisión
+   * de producto; el resto de la pila queda como respaldo mientras carga y para
+   * los sistemas que no la resuelvan.
+   */
   --font-sans:
-    system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
-    sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
-    "Noto Color Emoji";
+    var(--font-space-grotesk), system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
+    "Segoe UI Symbol", "Noto Color Emoji";
 
   /* Escala tipográfica del documento. Line-height 1.5 en los tres niveles. */
   --text-display: 3rem;
@@ -66,6 +71,7 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-success: var(--success);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -115,6 +121,10 @@
   --accent: oklch(0.941 0.008 285);
   --accent-foreground: oklch(0.25 0.014 285);
   --destructive: oklch(0.551 0.203 27.3);
+  /* Par semántico de `--destructive`: confirma que una acción del chat quedó
+     hecha. No es un segundo acento de marca, igual que el rojo no lo es.
+     Oscurecido respecto al verde de partida, que sobre blanco daba 3.8:1. */
+  --success: oklch(0.53 0.13 163);
   --border: oklch(0.911 0.006 285);
   --input: oklch(0.897 0.007 285);
   --ring: oklch(0.632 0.027 285);
@@ -156,6 +166,7 @@
   --accent: oklch(0.3 0.012 285);
   --accent-foreground: oklch(0.965 0.003 285);
   --destructive: oklch(0.68 0.19 25);
+  --success: oklch(0.78 0.14 163);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 14%);
   --ring: oklch(0.7 0.03 285);

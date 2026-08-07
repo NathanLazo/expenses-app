@@ -4,16 +4,20 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "~/lib/utils";
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+  // Chip: radio de 3px y sin sombra, como el resto de las marcas pequeñas. El
+  // anillo de foco es el mismo de botones e inputs.
+  "inline-flex items-center rounded-sm border px-2.5 py-0.5 text-xs font-semibold transition-colors outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
   {
     variants: {
       variant: {
         default:
-          "border-transparent bg-primary text-primary-foreground shadow hover:bg-primary/80",
+          "border-transparent bg-primary text-primary-foreground hover:bg-primary/80",
         secondary:
           "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        // Mismo relleno que el botón destructivo: en oscuro el rojo se atenúa
+        // para que el texto blanco pase AA (el rojo sólido sólo llega a 3.1:1).
         destructive:
-          "border-transparent bg-destructive text-destructive-foreground shadow hover:bg-destructive/80",
+          "border-transparent bg-destructive text-white hover:bg-destructive/80 dark:bg-destructive/60",
         outline: "text-foreground",
       },
     },
@@ -34,4 +38,3 @@ function Badge({ className, variant, ...props }: BadgeProps) {
 }
 
 export { Badge, badgeVariants };
-

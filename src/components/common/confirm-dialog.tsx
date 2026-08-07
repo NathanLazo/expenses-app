@@ -58,10 +58,13 @@ export function ConfirmDialog({
             }}
             className={cn(
               destructive &&
-                "bg-destructive hover:bg-destructive/90 focus-visible:ring-destructive/40 text-white",
+                // `dark:bg-destructive/60` como en el botón destructivo: sobre
+                // el rojo sólido del tema oscuro el texto blanco queda en
+                // 3.1:1 y no pasa AA.
+                "bg-destructive hover:bg-destructive/90 focus-visible:ring-destructive/40 dark:bg-destructive/60 text-white",
             )}
           >
-            {isPending ? "Procesando..." : confirmLabel}
+            {isPending ? "Procesando…" : confirmLabel}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

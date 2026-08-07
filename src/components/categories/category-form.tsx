@@ -46,6 +46,28 @@ export const COLOR_OPTIONS = [
   "#84CC16",
 ];
 
+/**
+ * Tinta legible encima de un color de categoría. La paleta abarca desde el
+ * violeta (luminancia 0.20) hasta el lima (0.48): con blanco fijo la palomita
+ * de "seleccionado" cae a 2.0:1 sobre lima y ámbar, por debajo del 3:1 que
+ * WCAG 1.4.11 pide a un objeto gráfico. El corte en 0.35 deja el peor caso en
+ * 3.5:1 y funciona igual con los colores que vengan de la base de datos.
+ */
+export function contrastingInk(color: string) {
+  const hex = color.replace("#", "");
+  if (!/^[0-9a-fA-F]{6}$/.test(hex)) return "#ffffff";
+
+  const channel = (offset: number) => {
+    const value = parseInt(hex.slice(offset, offset + 2), 16) / 255;
+    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+  };
+
+  const luminance =
+    0.2126 * channel(0) + 0.7152 * channel(2) + 0.0722 * channel(4);
+
+  return luminance > 0.35 ? "#0a0a0a" : "#ffffff";
+}
+
 const categoryFormSchema = z.object({
   name: z
     .string()
@@ -137,7 +159,7 @@ export function CategoryForm({
               <FormControl>
                 <Input
                   {...field}
-                  placeholder="Ej: Comida, Transporte..."
+                  placeholder="Ej: Comida, Transporte…"
                   autoFocus
                 />
               </FormControl>
@@ -225,7 +247,10 @@ export function CategoryForm({
                     }}
                   >
                     {field.value === option ? (
-                      <Check className="size-4 text-white" />
+                      <Check
+                        className="size-4"
+                        style={{ color: contrastingInk(option) }}
+                      />
                     ) : null}
                   </button>
                 ))}
@@ -276,7 +301,7 @@ export function CategoryForm({
             Cancelar
           </Button>
           <Button type="submit" disabled={isPending}>
-            {isPending ? "Guardando..." : submitLabel}
+            {isPending ? "Guardando…" : submitLabel}
           </Button>
         </div>
       </form>
