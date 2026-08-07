@@ -2,8 +2,9 @@
 
 import Image from "next/image";
 import { useState } from "react";
-import { MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { Image as ImageIcon, MoreVertical, Pencil, Trash2 } from "lucide-react";
 
+import { CategoryIcon } from "~/components/common/category-icon";
 import { ReceiptViewer } from "~/components/expenses/receipt-viewer";
 import { Button } from "~/components/ui/button";
 import {
@@ -71,7 +72,7 @@ function IncomeRow({
   // El desglose va en la columna de texto y no bajo el monto: en móvil una
   // segunda línea a la derecha estrujaba el título hasta hacerlo ilegible.
   // Sin impuestos el neto ya es la base, así que repetirla sobraría.
-  const details = hasTaxes(income)
+  const taxes = hasTaxes(income)
     ? [
         `Base ${formatAmount(totals.base)}`,
         income.iva !== null ? `IVA ${formatAmount(income.iva)}` : null,
@@ -79,12 +80,22 @@ function IncomeRow({
       ].filter(Boolean)
     : ["Sin impuestos"];
 
+  // El cliente va primero en la línea secundaria porque es lo que sobrevive al
+  // recorte en pantallas angostas, y sólo cuando el título no lo dice ya.
+  const details =
+    income.client && title !== income.client.name
+      ? [income.client.name, ...taxes]
+      : taxes;
+
   return (
     <li className="hover:bg-accent/50 flex items-center gap-3 rounded-lg border p-3 transition-colors">
-      {/* La miniatura de la factura ocupa el lugar donde el gasto pone el icono
-          de su categoría. Sólo aparece si hay factura, así que a diferencia de
-          un icono fijo no le roba ancho al concepto cuando no aporta nada. */}
-      {income.image ? (
+      {/* Un solo elemento a la izquierda, no dos: sumar la burbuja del cliente
+          y la miniatura de la factura dejaba el concepto en ~100px en móvil.
+          Manda el cliente, que es el dato que distingue una fila de otra; la
+          factura sigue a un toque desde el menú. */}
+      {income.client ? (
+        <CategoryIcon icon={income.client.icon} color={income.client.color} />
+      ) : income.image ? (
         <button
           type="button"
           onClick={() => setIsReceiptOpen(true)}
@@ -106,11 +117,14 @@ function IncomeRow({
           en un móvil de 360px al concepto le quedaban 43px: cuatro letras. */}
       <div className="min-w-0 flex-1">
         <p className="truncate font-medium">{title}</p>
-        <div className="flex items-baseline justify-between gap-2">
+        {/* Compartiendo renglón, el desglose se quedaba en 3px en un móvil de
+            320px: el monto se lo comía entero. Bajo `sm` cada uno toma su
+            línea; de ahí para arriba caben lado a lado. */}
+        <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-2">
           <p className="text-muted-foreground truncate text-sm">
             {details.join(" · ")}
           </p>
-          <span className="shrink-0 font-semibold tabular-nums">
+          <span className="shrink-0 text-right font-semibold tabular-nums">
             {formatAmount(totals.net)}
           </span>
         </div>
@@ -128,6 +142,12 @@ function IncomeRow({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          {income.image ? (
+            <DropdownMenuItem onClick={() => setIsReceiptOpen(true)}>
+              <ImageIcon className="mr-2 size-4" />
+              Ver factura
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuItem onClick={() => onEdit(income)}>
             <Pencil className="mr-2 size-4" />
             Editar

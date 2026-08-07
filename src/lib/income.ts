@@ -1,3 +1,5 @@
+import type { IncomeKind, PaymentMethod } from "@prisma/client";
+
 /**
  * Un ingreso se guarda en tres piezas independientes para que cuadre con lo que
  * dice una factura: la base (lo cobrado antes de impuestos), el IVA que se
@@ -12,6 +14,34 @@ export type IncomeAmounts = {
   iva: number | null;
   isr: number | null;
 };
+
+/**
+ * Nombres en pantalla de los enums. El import es `import type`, así que estas
+ * tablas viven en el bundle del cliente sin arrastrar `@prisma/client`: los
+ * enums de Prisma son objetos en tiempo de ejecución y usarlos como valor
+ * metería el cliente de la base en el navegador.
+ */
+export const INCOME_KIND_LABELS: Record<IncomeKind, string> = {
+  HONORARIOS: "Honorarios",
+  SALARIO: "Salario",
+  VENTA: "Venta",
+  RENTA: "Renta",
+  INTERESES: "Intereses",
+  OTRO: "Otro",
+};
+
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  TRANSFERENCIA: "Transferencia",
+  EFECTIVO: "Efectivo",
+  TARJETA: "Tarjeta",
+  PLATAFORMA: "Plataforma",
+  OTRO: "Otro",
+};
+
+export const INCOME_KINDS = Object.keys(INCOME_KIND_LABELS) as IncomeKind[];
+export const PAYMENT_METHODS = Object.keys(
+  PAYMENT_METHOD_LABELS,
+) as PaymentMethod[];
 
 /** Tasas de referencia para el llenado rápido del formulario. */
 export const IVA_RATE = 0.16;
@@ -65,10 +95,18 @@ export function hasTaxes(income: IncomeAmounts) {
   return income.iva !== null || income.isr !== null;
 }
 
-/** Título visible de un ingreso; el concepto es opcional. */
-export function formatIncomeTitle(income: { description: string | null }) {
+/**
+ * Título visible de un ingreso. El concepto manda; si no hay, el nombre del
+ * cliente identifica el cobro igual que el nombre de la categoría identifica a
+ * un gasto sin descripción.
+ */
+export function formatIncomeTitle(income: {
+  description: string | null;
+  client?: { name: string } | null;
+}) {
   const description = income.description?.trim();
   // No basta `??`: una descripción en blanco tampoco sirve como título.
   if (description) return description;
+  if (income.client?.name.trim()) return income.client.name;
   return "Ingreso sin concepto";
 }

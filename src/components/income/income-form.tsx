@@ -6,10 +6,16 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
+import type { IncomeKind, PaymentMethod } from "@prisma/client";
+
 import {
   ReceiptField,
   useDiscardReceipt,
 } from "~/components/expenses/receipt-field";
+import {
+  ClientCombobox,
+  type ClientOption,
+} from "~/components/income/client-combobox";
 import { ReceiptViewer } from "~/components/expenses/receipt-viewer";
 import { Button } from "~/components/ui/button";
 import { Calendar } from "~/components/ui/calendar";
@@ -28,18 +34,32 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "~/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select";
 import { Separator } from "~/components/ui/separator";
 import { Textarea } from "~/components/ui/textarea";
 import { useAppSettings } from "~/hooks/use-app-settings";
 import { formatLongDate } from "~/lib/format";
 import {
   getIncomeTotals,
+  INCOME_KIND_LABELS,
+  INCOME_KINDS,
   ISR_RETENTION_RATE,
   IVA_RATE,
+  PAYMENT_METHOD_LABELS,
+  PAYMENT_METHODS,
   roundToCents,
 } from "~/lib/income";
 import { cn } from "~/lib/utils";
 import { es } from "date-fns/locale";
+
+/** Centinela del select: Radix no admite un item con valor vacío. */
+const NO_PAYMENT_METHOD = "__sin_registrar__";
 
 /** Campo de impuesto: vacío es válido, cualquier número debe ser >= 0. */
 const taxField = z
@@ -61,6 +81,11 @@ const incomeFormSchema = z
     description: z.string().trim().max(120, "Máximo 120 caracteres"),
     date: z.date(),
     image: z.string().url().nullable(),
+    clientId: z.string().nullable(),
+    kind: z.string().min(1),
+    project: z.string().trim().max(60, "Máximo 60 caracteres"),
+    /** Cadena vacía significa "no registrado". */
+    paymentMethod: z.string(),
   })
   // Una retención mayor a lo facturado dejaría un neto negativo, que no
   // describe ningún cobro real.
@@ -90,9 +115,18 @@ export type IncomeSubmitValues = {
   description: string | null;
   date: Date;
   image: string | null;
+  clientId: string | null;
+  kind: IncomeKind;
+  project: string | null;
+  paymentMethod: PaymentMethod | null;
 };
 
 type IncomeFormProps = {
+  clients: ClientOption[];
+  /** Crea un cliente desde el propio formulario y devuelve su id. */
+  onCreateClient: (name: string) => Promise<string | null>;
+  /** Proyectos ya usados, para no volver a escribirlos igual. */
+  projectSuggestions: string[];
   defaultValues?: Partial<IncomeFormValues>;
   onSubmit: (values: IncomeSubmitValues) => void;
   onCancel: () => void;
@@ -114,6 +148,9 @@ function readOptionalNumber(value: string) {
 }
 
 export function IncomeForm({
+  clients,
+  onCreateClient,
+  projectSuggestions,
   defaultValues,
   onSubmit,
   onCancel,
@@ -134,6 +171,10 @@ export function IncomeForm({
       description: "",
       date: new Date(),
       image: null,
+      clientId: null,
+      kind: "OTRO",
+      project: "",
+      paymentMethod: "",
       ...defaultValues,
     },
   });
@@ -167,6 +208,10 @@ export function IncomeForm({
       description: values.description.trim() || null,
       date: values.date,
       image: values.image,
+      clientId: values.clientId,
+      kind: values.kind as IncomeKind,
+      project: values.project.trim() || null,
+      paymentMethod: (values.paymentMethod || null) as PaymentMethod | null,
     }),
   );
 
@@ -285,6 +330,124 @@ export function IncomeForm({
             )}
           />
         </div>
+
+        <FormField
+          control={form.control}
+          name="clientId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Cliente</FormLabel>
+              <FormControl>
+                <ClientCombobox
+                  value={field.value}
+                  onChange={field.onChange}
+                  clients={clients}
+                  onCreate={onCreateClient}
+                  disabled={isPending}
+                />
+              </FormControl>
+              <FormDescription>
+                Opcional. Quién te pagó. Puedes crear uno escribiendo su nombre.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="kind"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Tipo</FormLabel>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {INCOME_KINDS.map((kind) => (
+                      <SelectItem key={kind} value={kind}>
+                        {INCOME_KIND_LABELS[kind]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormDescription>
+                  Sólo algunos llevan retención.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="paymentMethod"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Cómo te pagaron</FormLabel>
+                <Select
+                  value={field.value === "" ? NO_PAYMENT_METHOD : field.value}
+                  onValueChange={(value) =>
+                    field.onChange(value === NO_PAYMENT_METHOD ? "" : value)
+                  }
+                >
+                  <FormControl>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {/* Radix no admite un SelectItem con value vacío, así que
+                        "sin registrar" necesita un valor centinela. */}
+                    <SelectItem value={NO_PAYMENT_METHOD}>
+                      Sin registrar
+                    </SelectItem>
+                    {PAYMENT_METHODS.map((method) => (
+                      <SelectItem key={method} value={method}>
+                        {PAYMENT_METHOD_LABELS[method]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormDescription>Opcional.</FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <FormField
+          control={form.control}
+          name="project"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Proyecto</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  list="proyectos-usados"
+                  placeholder="Ej: Rediseño de marca"
+                  autoComplete="off"
+                />
+              </FormControl>
+              {/* Sugerencias de lo ya escrito, para que un mismo trabajo no
+                  termine partido en tres variantes del mismo nombre. */}
+              <datalist id="proyectos-usados">
+                {projectSuggestions.map((project) => (
+                  <option key={project} value={project} />
+                ))}
+              </datalist>
+              <FormDescription>
+                Opcional. Junta varios cobros de un mismo trabajo.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         <FormField
           control={form.control}

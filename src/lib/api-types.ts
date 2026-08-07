@@ -10,6 +10,16 @@ export type Income = NonNullable<
   RouterOutputs["useIncomes"]["getAll"]["result"]
 >[number];
 
+/** Cliente con sus totales del periodo, tal como los devuelve el router. */
+export type ClientWithTotals = NonNullable<
+  RouterOutputs["useClients"]["getAll"]["result"]
+>[number];
+
+/** Un ciclo de la serie de tendencia. */
+export type TrendPoint = NonNullable<
+  RouterOutputs["useAnalytics"]["getTrend"]["result"]
+>["cycles"][number];
+
 /** Categoría con el conteo de gastos y los del mes en curso. */
 export type CategoryWithStats = NonNullable<
   RouterOutputs["useCategories"]["getAll"]["result"]

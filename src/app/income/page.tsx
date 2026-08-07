@@ -7,6 +7,7 @@ import {
   Percent,
   Plus,
   TriangleAlert,
+  Users,
   Wallet,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -19,6 +20,7 @@ import {
   IncomeForm,
   type IncomeSubmitValues,
 } from "~/components/income/income-form";
+import { ClientManager } from "~/components/income/client-manager";
 import {
   IncomeList,
   IncomeListSkeleton,
@@ -37,10 +39,13 @@ export default function IncomePage() {
   const { formatAmount } = useAppSettings();
 
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isClientManagerOpen, setIsClientManagerOpen] = useState(false);
   const [editing, setEditing] = useState<Income | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Income | null>(null);
 
   const utils = api.useUtils();
+  const { data: clientsResponse } = api.useClients.getAll.useQuery();
+  const clients = clientsResponse?.result ?? [];
   const { data: incomesResponse, isLoading } = api.useIncomes.getAll.useQuery({
     from,
     to,
@@ -55,7 +60,36 @@ export default function IncomePage() {
     setEditing(null);
   };
 
-  const invalidate = () => utils.useIncomes.invalidate();
+  const invalidate = async () => {
+    await Promise.all([
+      utils.useIncomes.invalidate(),
+      utils.useClients.invalidate(),
+      utils.useAnalytics.invalidate(),
+    ]);
+  };
+
+  // El alta en línea del combobox: crea el cliente y devuelve su id para que el
+  // formulario lo deje seleccionado sin que el usuario tenga que buscarlo.
+  const createClient = api.useClients.create.useMutation();
+  const handleCreateClient = async (name: string) => {
+    const response = await createClient.mutateAsync({ name });
+    if (!isOkResult(response) || !response.result) {
+      toast.error("No se pudo crear el cliente");
+      return null;
+    }
+    await utils.useClients.invalidate();
+    toast.success(`Cliente "${response.result.name}" creado`);
+    return response.result.id;
+  };
+
+  /** Proyectos ya usados en el periodo, sin repetir. */
+  const projectSuggestions = [
+    ...new Set(
+      incomes
+        .map((income) => income.project)
+        .filter((project): project is string => Boolean(project)),
+    ),
+  ];
 
   const createIncome = api.useIncomes.create.useMutation({
     onSuccess: async (data) => {
@@ -116,10 +150,19 @@ export default function IncomePage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <MonthSwitcher />
-        <Button onClick={openCreate} className="sm:w-auto">
-          <Plus className="mr-1 size-4" />
-          Nuevo ingreso
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setIsClientManagerOpen(true)}
+          >
+            <Users className="mr-1 size-4" />
+            Clientes
+          </Button>
+          <Button onClick={openCreate}>
+            <Plus className="mr-1 size-4" />
+            Nuevo ingreso
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -208,6 +251,9 @@ export default function IncomePage() {
       >
         <IncomeForm
           key={editing?.id ?? "new"}
+          clients={clients}
+          onCreateClient={handleCreateClient}
+          projectSuggestions={projectSuggestions}
           defaultValues={
             editing
               ? {
@@ -217,6 +263,10 @@ export default function IncomePage() {
                   description: editing.description ?? "",
                   date: new Date(editing.date),
                   image: editing.image,
+                  clientId: editing.clientId,
+                  kind: editing.kind,
+                  project: editing.project ?? "",
+                  paymentMethod: editing.paymentMethod ?? "",
                 }
               : undefined
           }
@@ -226,6 +276,11 @@ export default function IncomePage() {
           submitLabel={editing ? "Guardar cambios" : "Registrar ingreso"}
         />
       </ResponsiveModal>
+
+      <ClientManager
+        open={isClientManagerOpen}
+        onOpenChange={setIsClientManagerOpen}
+      />
 
       <ConfirmDialog
         open={Boolean(pendingDelete)}
