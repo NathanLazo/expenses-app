@@ -34,6 +34,15 @@ type ClientComboboxProps = {
   /** Crea el cliente y devuelve su id para seleccionarlo en el acto. */
   onCreate: (name: string) => Promise<string | null>;
   disabled?: boolean;
+  /**
+   * `FormControl` es un Slot: inyecta `id`, `aria-describedby` y `aria-invalid`
+   * en su hijo directo. Si no se reciben y se reenvían al botón, el `<label>`
+   * del campo apunta a un id que no existe y el lector de pantalla anuncia sólo
+   * el valor ("Sin cliente") sin decir de qué campo se trata.
+   */
+  id?: string;
+  "aria-describedby"?: string;
+  "aria-invalid"?: boolean;
 };
 
 /**
@@ -47,6 +56,7 @@ export function ClientCombobox({
   clients,
   onCreate,
   disabled,
+  ...field
 }: ClientComboboxProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -77,6 +87,7 @@ export function ClientCombobox({
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
         <Button
+          {...field}
           type="button"
           variant="outline"
           role="combobox"
@@ -113,25 +124,14 @@ export function ClientCombobox({
             onValueChange={setQuery}
           />
           <CommandList>
-            {/* Cuando no hay coincidencias, el nombre escrito se ofrece como
-                alta en vez de dejar al usuario en un callejón sin salida. */}
-            <CommandEmpty className="p-2">
-              {trimmed ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="w-full justify-start"
-                  disabled={isCreating}
-                  onClick={() => void handleCreate()}
-                >
-                  <Plus className="mr-2 size-4" />
-                  {isCreating ? "Creando..." : `Crear "${trimmed}"`}
-                </Button>
-              ) : (
-                <p className="text-muted-foreground py-3 text-center text-sm">
-                  Todavía no tienes clientes.
-                </p>
-              )}
+            {/* El alta vive sólo como CommandItem, más abajo. Un botón suelto
+                aquí sería inalcanzable con el teclado (cmdk sólo navega items)
+                y además nunca llegaría a mostrarse: en cuanto hay texto, el
+                item de crear coincide y suprime este estado vacío. */}
+            <CommandEmpty>
+              <p className="text-muted-foreground py-3 text-center text-sm">
+                Todavía no tienes clientes.
+              </p>
             </CommandEmpty>
 
             <CommandGroup>
