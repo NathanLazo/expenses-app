@@ -74,8 +74,9 @@ function ToolError({ message }: { message: string }) {
 }
 
 /**
- * Tarjeta base de las acciones. El borde separa estructura (cabecera, cuerpo,
- * botones); la elevación la da la sombra.
+ * Tarjeta base de las acciones. Igual que el resto de superficies en flujo, la
+ * jerarquía la dan el borde y el fondo: la sombra se reserva para lo que flota
+ * de verdad (diálogos, popovers). El tono sólo tiñe el borde y el icono.
  */
 function ActionCard({
   icon: Icon,
@@ -94,10 +95,10 @@ function ActionCard({
     <section
       aria-label={title}
       className={cn(
-        "chat-enter bg-card overflow-hidden rounded-2xl border shadow-sm",
+        "chat-enter bg-card overflow-hidden rounded-xl border",
         tone === "destructive" && "border-destructive/40",
-        tone === "success" && "border-emerald-500/40",
-        tone === "muted" && "opacity-70 shadow-none",
+        tone === "success" && "border-success/40",
+        tone === "muted" && "opacity-70",
       )}
     >
       <header className="flex items-center gap-2 border-b px-3 py-2">
@@ -105,7 +106,7 @@ function ActionCard({
           className={cn(
             "size-3.5 shrink-0",
             tone === "destructive" && "text-destructive",
-            tone === "success" && "text-emerald-600 dark:text-emerald-400",
+            tone === "success" && "text-success",
             tone === "default" && "text-muted-foreground",
             tone === "muted" && "text-muted-foreground",
           )}
@@ -157,7 +158,7 @@ function ExpenseSummary({ expense }: { expense: ExpensePreview }) {
             type="button"
             onClick={() => setIsReceiptOpen(true)}
             aria-label={`Ver el ticket de ${title}`}
-            className="focus-visible:ring-ring size-10 shrink-0 overflow-hidden rounded-md transition-opacity duration-150 hover:opacity-80 focus-visible:ring-2 focus-visible:outline-none"
+            className="focus-visible:ring-ring size-10 shrink-0 overflow-hidden rounded-md transition-opacity duration-150 hover:opacity-80 focus-visible:ring-[3px] focus-visible:outline-none"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -246,7 +247,7 @@ function IncomeSummary({ income }: { income: IncomePreview }) {
             type="button"
             onClick={() => setIsReceiptOpen(true)}
             aria-label={`Ver la factura de ${title}`}
-            className="focus-visible:ring-ring size-10 shrink-0 overflow-hidden rounded-md transition-opacity duration-150 hover:opacity-80 focus-visible:ring-2 focus-visible:outline-none"
+            className="focus-visible:ring-ring size-10 shrink-0 overflow-hidden rounded-md transition-opacity duration-150 hover:opacity-80 focus-visible:ring-[3px] focus-visible:outline-none"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -329,7 +330,7 @@ function DeniedFooter({ label }: { label: string }) {
 
 function DoneFooter({ label }: { label: string }) {
   return (
-    <p className="flex items-center gap-2 border-t px-3 py-2.5 text-sm text-emerald-600 dark:text-emerald-400">
+    <p className="text-success flex items-center gap-2 border-t px-3 py-2.5 text-sm">
       <Check className="size-3.5" />
       {label}
     </p>

@@ -119,7 +119,7 @@ export function ClientCombobox({
       >
         <Command>
           <CommandInput
-            placeholder="Buscar o escribir uno nuevo..."
+            placeholder="Buscar o escribir uno nuevo…"
             value={query}
             onValueChange={setQuery}
           />
@@ -187,7 +187,7 @@ export function ClientCombobox({
                   onSelect={() => void handleCreate()}
                 >
                   <Plus className="mr-2 size-4" />
-                  {isCreating ? "Creando..." : `Crear "${trimmed}"`}
+                  {isCreating ? "Creando…" : `Crear «${trimmed}»`}
                 </CommandItem>
               </CommandGroup>
             ) : null}

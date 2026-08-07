@@ -87,7 +87,7 @@ export function ChatComposer({
     <div className="bg-background pb-safe pt-2">
       <div
         className={cn(
-          "bg-card rounded-2xl border shadow-sm transition-[border-color,box-shadow] duration-150",
+          "bg-card rounded-xl border transition-[border-color,box-shadow] duration-150",
           "focus-within:border-ring focus-within:ring-ring/50 focus-within:ring-[3px]",
         )}
       >
@@ -117,7 +117,7 @@ export function ChatComposer({
                     type="button"
                     onClick={() => onRemoveAttachment(attachment.id)}
                     aria-label="Quitar foto adjunta"
-                    className="bg-background focus-visible:ring-ring absolute -top-1.5 -right-1.5 flex size-6 items-center justify-center rounded-full border shadow-sm transition-[background-color,scale] duration-150 hover:bg-accent active:scale-[0.96] focus-visible:ring-2 focus-visible:outline-none motion-reduce:transition-none motion-reduce:active:scale-100"
+                    className="bg-background focus-visible:ring-ring hover:bg-accent absolute -top-1.5 -right-1.5 flex size-6 items-center justify-center rounded-full border shadow-sm transition-[background-color,scale] duration-150 focus-visible:ring-[3px] focus-visible:outline-none active:scale-[0.96] motion-reduce:transition-none motion-reduce:active:scale-100"
                   >
                     <X className="size-3.5" />
                   </button>
@@ -188,7 +188,7 @@ export function ChatComposer({
               type="button"
               variant="ghost"
               size="icon"
-              className="size-10 rounded-xl"
+              className="size-10"
               aria-label="Tomar foto del ticket"
               onClick={() => cameraInputRef.current?.click()}
             >
@@ -200,7 +200,7 @@ export function ChatComposer({
             type="button"
             variant="ghost"
             size="icon"
-            className="size-10 rounded-xl"
+            className="size-10"
             aria-label="Adjuntar foto desde la galería"
             onClick={() => galleryInputRef.current?.click()}
           >

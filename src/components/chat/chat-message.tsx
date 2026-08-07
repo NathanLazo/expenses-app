@@ -40,7 +40,7 @@ function UserAttachment({ url }: { url: string }) {
         type="button"
         onClick={() => setIsOpen(true)}
         aria-label="Ver la foto en grande"
-        className="focus-visible:ring-ring block overflow-hidden rounded-xl transition-opacity duration-150 hover:opacity-90 focus-visible:ring-2 focus-visible:outline-none"
+        className="focus-visible:ring-ring block overflow-hidden rounded-xl transition-opacity duration-150 hover:opacity-90 focus-visible:ring-[3px] focus-visible:outline-none"
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img

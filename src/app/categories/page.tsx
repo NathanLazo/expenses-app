@@ -261,7 +261,7 @@ export default function CategoriesPage() {
                         }
                       />
                       <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground text-xs">
+                        <span className="text-muted-foreground text-xs tabular-nums">
                           {formatPercent(usage)} de{" "}
                           {formatAmount(category.budget)}
                         </span>

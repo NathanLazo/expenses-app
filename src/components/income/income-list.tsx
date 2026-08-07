@@ -100,7 +100,7 @@ function IncomeRow({
           type="button"
           onClick={() => setIsReceiptOpen(true)}
           aria-label={`Ver la factura de ${title}`}
-          className="focus-visible:ring-ring relative size-10 shrink-0 overflow-hidden rounded-md border transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:outline-none"
+          className="focus-visible:ring-ring relative size-10 shrink-0 overflow-hidden rounded-md border transition-opacity hover:opacity-80 focus-visible:ring-[3px] focus-visible:outline-none"
         >
           <Image
             src={income.image}

@@ -267,8 +267,8 @@ function SettingsForm({ settings }: { settings: AppSettings | null }) {
             Apariencia
           </CardTitle>
           <CardDescription>
-            Elige el tema de la interfaz. &quot;Sistema&quot; sigue la
-            configuración de tu dispositivo.
+            Elige el tema de la interfaz. «Sistema» sigue la configuración de tu
+            dispositivo.
           </CardDescription>
         </CardHeader>
         <CardContent>

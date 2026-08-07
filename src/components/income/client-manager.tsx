@@ -4,7 +4,10 @@ import { useState } from "react";
 import { ArrowLeft, Check, Pencil, Plus, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 
-import { COLOR_OPTIONS } from "~/components/categories/category-form";
+import {
+  COLOR_OPTIONS,
+  contrastingInk,
+} from "~/components/categories/category-form";
 import { CategoryIcon } from "~/components/common/category-icon";
 import { ConfirmDialog } from "~/components/common/confirm-dialog";
 import { EmptyState } from "~/components/common/empty-state";
@@ -212,7 +215,10 @@ export function ClientManager({ open, onOpenChange }: ClientManagerProps) {
                     }}
                   >
                     {color === option ? (
-                      <Check className="size-4 text-white" />
+                      <Check
+                        className="size-4"
+                        style={{ color: contrastingInk(option) }}
+                      />
                     ) : null}
                   </button>
                 ))}
@@ -233,7 +239,7 @@ export function ClientManager({ open, onOpenChange }: ClientManagerProps) {
                 rows={2}
                 maxLength={200}
                 className="resize-none"
-                placeholder="Contacto, condiciones de pago..."
+                placeholder="Contacto, condiciones de pago…"
               />
             </div>
 
@@ -248,7 +254,7 @@ export function ClientManager({ open, onOpenChange }: ClientManagerProps) {
                 Volver
               </Button>
               <Button type="submit" disabled={isPending || !name.trim()}>
-                {isPending ? "Guardando..." : editing ? "Guardar" : "Crear"}
+                {isPending ? "Guardando…" : editing ? "Guardar" : "Crear"}
               </Button>
             </div>
           </form>

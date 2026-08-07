@@ -1,6 +1,7 @@
 import "~/styles/globals.css";
 
 import { type Metadata } from "next";
+import { Space_Grotesk } from "next/font/google";
 
 import { AppShell } from "~/components/layout/app-shell";
 import { Providers } from "~/components/providers";
@@ -24,7 +25,11 @@ export const metadata: Metadata = {
   icons: [
     { rel: "icon", url: "/favicon.ico" },
     { rel: "apple-touch-icon", url: "/icons/launchericon-192x192.png" },
-    { rel: "apple-touch-icon", sizes: "144x144", url: "/icons/launchericon-144x144.png" },
+    {
+      rel: "apple-touch-icon",
+      sizes: "144x144",
+      url: "/icons/launchericon-144x144.png",
+    },
   ],
   openGraph: {
     type: "website",
@@ -45,13 +50,23 @@ export const metadata: Metadata = {
   },
 };
 
+/*
+ * Space Grotesk cubre 300-700 en un solo archivo variable, que es justo lo que
+ * pide la escala del sistema (cuerpo 400, encabezado 600, display 700).
+ * `next/font` la sirve desde el propio dominio y reserva las métricas con la
+ * fuente de respaldo, así que no hay salto de layout al cargar.
+ */
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-space-grotesk",
+});
+
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    // El sistema tipográfico es system-ui (ver globals.css): no hay descarga de
-    // fuente, así que tampoco hay variable de next/font que colgar del <html>.
-    <html lang="es" suppressHydrationWarning>
+    <html lang="es" className={spaceGrotesk.variable} suppressHydrationWarning>
       <body className="min-h-svh antialiased">
         <Providers>
           <AppShell>{children}</AppShell>
