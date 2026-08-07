@@ -216,6 +216,7 @@ export default function IncomePage() {
                   isr: editing.isr !== null ? String(editing.isr) : "",
                   description: editing.description ?? "",
                   date: new Date(editing.date),
+                  image: editing.image,
                 }
               : undefined
           }

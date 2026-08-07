@@ -2,9 +2,15 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CalendarIcon } from "lucide-react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
+import {
+  ReceiptField,
+  useDiscardReceipt,
+} from "~/components/expenses/receipt-field";
+import { ReceiptViewer } from "~/components/expenses/receipt-viewer";
 import { Button } from "~/components/ui/button";
 import { Calendar } from "~/components/ui/calendar";
 import {
@@ -54,6 +60,7 @@ const incomeFormSchema = z
     isr: taxField,
     description: z.string().trim().max(120, "Máximo 120 caracteres"),
     date: z.date(),
+    image: z.string().url().nullable(),
   })
   // Una retención mayor a lo facturado dejaría un neto negativo, que no
   // describe ningún cobro real.
@@ -82,6 +89,7 @@ export type IncomeSubmitValues = {
   isr: number | null;
   description: string | null;
   date: Date;
+  image: string | null;
 };
 
 type IncomeFormProps = {
@@ -114,6 +122,9 @@ export function IncomeForm({
 }: IncomeFormProps) {
   const { formatAmount } = useAppSettings();
 
+  const [isUploading, setIsUploading] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
   const form = useForm<IncomeFormValues>({
     resolver: zodResolver(incomeFormSchema),
     defaultValues: {
@@ -122,9 +133,24 @@ export function IncomeForm({
       isr: "",
       description: "",
       date: new Date(),
+      image: null,
       ...defaultValues,
     },
   });
+
+  const discardReceipt = useDiscardReceipt();
+
+  /**
+   * Si el usuario sube la factura y luego cancela, esa imagen nunca quedará
+   * ligada a un ingreso: la soltamos para no dejar basura en el store.
+   */
+  const handleCancel = () => {
+    const current = form.getValues("image");
+    if (current && current !== defaultValues?.image) {
+      discardReceipt(current);
+    }
+    onCancel();
+  };
 
   const base = readNumber(form.watch("amount"));
   const totals = getIncomeTotals({
@@ -140,6 +166,7 @@ export function IncomeForm({
       isr: readOptionalNumber(values.isr),
       description: values.description.trim() || null,
       date: values.date,
+      image: values.image,
     }),
   );
 
@@ -332,6 +359,31 @@ export function IncomeForm({
           )}
         />
 
+        <FormField
+          control={form.control}
+          name="image"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Factura</FormLabel>
+              <FormControl>
+                <ReceiptField
+                  kind="factura"
+                  value={field.value}
+                  onChange={field.onChange}
+                  onUploadingChange={setIsUploading}
+                  onPreview={setPreviewUrl}
+                  disabled={isPending}
+                />
+              </FormControl>
+              <FormDescription>
+                Opcional. Guarda el comprobante del cobro para tenerlo a la
+                mano.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
         {/* El desglose evita la duda de siempre: qué se suma, qué se resta y
             cuánto termina llegando a la cuenta. */}
         <div className="bg-muted/50 space-y-2 rounded-lg border p-3 text-sm">
@@ -358,16 +410,22 @@ export function IncomeForm({
           <Button
             type="button"
             variant="outline"
-            onClick={onCancel}
+            onClick={handleCancel}
             disabled={isPending}
           >
             Cancelar
           </Button>
-          <Button type="submit" disabled={isPending}>
-            {isPending ? "Guardando..." : submitLabel}
+          <Button type="submit" disabled={Boolean(isPending) || isUploading}>
+            {isPending
+              ? "Guardando..."
+              : isUploading
+                ? "Subiendo factura..."
+                : submitLabel}
           </Button>
         </div>
       </form>
+
+      <ReceiptViewer url={previewUrl} onClose={() => setPreviewUrl(null)} />
     </Form>
   );
 }

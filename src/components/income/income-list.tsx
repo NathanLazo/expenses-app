@@ -1,7 +1,10 @@
 "use client";
 
+import Image from "next/image";
+import { useState } from "react";
 import { MoreVertical, Pencil, Trash2 } from "lucide-react";
 
+import { ReceiptViewer } from "~/components/expenses/receipt-viewer";
 import { Button } from "~/components/ui/button";
 import {
   DropdownMenu,
@@ -61,6 +64,7 @@ function IncomeRow({
   onDelete,
 }: { income: Income } & IncomeActions) {
   const { formatAmount } = useAppSettings();
+  const [isReceiptOpen, setIsReceiptOpen] = useState(false);
   const title = formatIncomeTitle(income);
   const totals = getIncomeTotals(income);
 
@@ -77,20 +81,39 @@ function IncomeRow({
 
   return (
     <li className="hover:bg-accent/50 flex items-center gap-3 rounded-lg border p-3 transition-colors">
-      {/* Sin burbuja de icono a la izquierda: aquí sería idéntica en todas las
-          filas (los ingresos no tienen categoría) y le quitaba al concepto el
-          ancho que necesita en móvil. El monto comparte renglón con el título
-          para que el desglose disponga de la fila completa. */}
+      {/* La miniatura de la factura ocupa el lugar donde el gasto pone el icono
+          de su categoría. Sólo aparece si hay factura, así que a diferencia de
+          un icono fijo no le roba ancho al concepto cuando no aporta nada. */}
+      {income.image ? (
+        <button
+          type="button"
+          onClick={() => setIsReceiptOpen(true)}
+          aria-label={`Ver la factura de ${title}`}
+          className="focus-visible:ring-ring relative size-10 shrink-0 overflow-hidden rounded-md border transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:outline-none"
+        >
+          <Image
+            src={income.image}
+            alt=""
+            fill
+            sizes="40px"
+            className="object-cover"
+          />
+        </button>
+      ) : null}
+
+      {/* El concepto se queda con el renglón entero y el monto baja al segundo,
+          junto al desglose que lo explica. Compartiendo renglón con el monto,
+          en un móvil de 360px al concepto le quedaban 43px: cuatro letras. */}
       <div className="min-w-0 flex-1">
+        <p className="truncate font-medium">{title}</p>
         <div className="flex items-baseline justify-between gap-2">
-          <p className="truncate font-medium">{title}</p>
+          <p className="text-muted-foreground truncate text-sm">
+            {details.join(" · ")}
+          </p>
           <span className="shrink-0 font-semibold tabular-nums">
             {formatAmount(totals.net)}
           </span>
         </div>
-        <p className="text-muted-foreground truncate text-sm">
-          {details.join(" · ")}
-        </p>
       </div>
 
       <DropdownMenu>
@@ -118,6 +141,12 @@ function IncomeRow({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <ReceiptViewer
+        url={isReceiptOpen ? income.image : null}
+        onClose={() => setIsReceiptOpen(false)}
+        title={title}
+      />
     </li>
   );
 }

@@ -2,6 +2,7 @@
 
 import {
   AlertTriangle,
+  Banknote,
   Check,
   FolderPlus,
   Loader2,
@@ -21,6 +22,7 @@ import { Button } from "~/components/ui/button";
 import { useAppSettings } from "~/hooks/use-app-settings";
 import type { ChatMessagePart } from "~/lib/chat-types";
 import { formatExpenseDate } from "~/lib/format";
+import { formatIncomeTitle } from "~/lib/income";
 import { cn } from "~/lib/utils";
 
 /**
@@ -125,7 +127,8 @@ function ExpenseSummary({ expense }: { expense: ExpensePreview }) {
   const { formatAmount } = useAppSettings();
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
 
-  const title = expense.description?.trim() ?? expense.category?.name ?? "Gasto";
+  const title =
+    expense.description?.trim() ?? expense.category?.name ?? "Gasto";
 
   return (
     <div className="flex items-center gap-3 p-3">
@@ -174,6 +177,82 @@ function ExpenseSummary({ expense }: { expense: ExpensePreview }) {
   );
 }
 
+type IncomePreview = {
+  amount: number;
+  iva?: number | null;
+  isr?: number | null;
+  /** Lo calcula el servidor; mientras la tool no responde se deriva aquí. */
+  net?: number;
+  description?: string | null;
+  image?: string | null;
+  date: string;
+};
+
+/**
+ * Resumen del ingreso. A diferencia del gasto son tres cifras y no una, así que
+ * el desglose va explícito: el usuario tiene que poder verificar que la base es
+ * el subtotal y no el total de la factura antes de confirmar.
+ */
+function IncomeSummary({ income }: { income: IncomePreview }) {
+  const { formatAmount } = useAppSettings();
+  const [isReceiptOpen, setIsReceiptOpen] = useState(false);
+
+  const iva = income.iva ?? null;
+  const isr = income.isr ?? null;
+  const net = income.net ?? income.amount + (iva ?? 0) - (isr ?? 0);
+
+  const details =
+    iva === null && isr === null
+      ? ["Sin impuestos"]
+      : [
+          `Base ${formatAmount(income.amount)}`,
+          iva !== null ? `IVA ${formatAmount(iva)}` : null,
+          isr !== null ? `ISR ${formatAmount(isr)}` : null,
+        ].filter(Boolean);
+
+  const title = formatIncomeTitle({ description: income.description ?? null });
+
+  return (
+    <div className="flex items-start gap-3 p-3">
+      {income.image ? (
+        <>
+          <button
+            type="button"
+            onClick={() => setIsReceiptOpen(true)}
+            aria-label={`Ver la factura de ${title}`}
+            className="focus-visible:ring-ring size-10 shrink-0 overflow-hidden rounded-md transition-opacity duration-150 hover:opacity-80 focus-visible:ring-2 focus-visible:outline-none"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={income.image}
+              alt=""
+              className="image-outline size-full rounded-md object-cover"
+            />
+          </button>
+          <ReceiptViewer
+            url={isReceiptOpen ? income.image : null}
+            onClose={() => setIsReceiptOpen(false)}
+            title={title}
+          />
+        </>
+      ) : null}
+
+      <div className="min-w-0 flex-1 space-y-1">
+        <div className="flex items-baseline justify-between gap-3">
+          <p className="truncate font-medium">{title}</p>
+          <p className="shrink-0 text-lg font-semibold tabular-nums">
+            {formatAmount(net)}
+          </p>
+        </div>
+        <p className="text-muted-foreground truncate text-xs">
+          {formatExpenseDate(parseToolDate(income.date))} ·{" "}
+          {details.join(" · ")}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function ConfirmFooter({
   confirmLabel,
   destructive = false,
@@ -216,7 +295,9 @@ function PendingFooter({ label }: { label: string }) {
 
 function DeniedFooter({ label }: { label: string }) {
   return (
-    <p className="text-muted-foreground border-t px-3 py-2.5 text-sm">{label}</p>
+    <p className="text-muted-foreground border-t px-3 py-2.5 text-sm">
+      {label}
+    </p>
   );
 }
 
@@ -246,7 +327,9 @@ export function ChatToolPart({ part, onRespondToApproval }: ChatToolPartProps) {
         return <ToolError message="No pude leer tus categorías." />;
       }
       if (part.state !== "output-available") {
-        return <ToolStatus icon={Tags} label="Revisando tus categorías…" pending />;
+        return (
+          <ToolStatus icon={Tags} label="Revisando tus categorías…" pending />
+        );
       }
       return (
         <ToolStatus
@@ -262,7 +345,11 @@ export function ChatToolPart({ part, onRespondToApproval }: ChatToolPartProps) {
       }
       if (part.state !== "output-available") {
         return (
-          <ToolStatus icon={PieChart} label="Sacando cuentas del periodo…" pending />
+          <ToolStatus
+            icon={PieChart}
+            label="Sacando cuentas del periodo…"
+            pending
+          />
         );
       }
       if (!part.output.ok) {
@@ -276,10 +363,14 @@ export function ChatToolPart({ part, onRespondToApproval }: ChatToolPartProps) {
         return <ToolError message="No pude buscar los gastos." />;
       }
       if (part.state !== "output-available") {
-        return <ToolStatus icon={Search} label="Buscando en tus gastos…" pending />;
+        return (
+          <ToolStatus icon={Search} label="Buscando en tus gastos…" pending />
+        );
       }
       if (part.output.expenses.length === 0) {
-        return <ToolStatus icon={Search} label="No encontré gastos que coincidan" />;
+        return (
+          <ToolStatus icon={Search} label="No encontré gastos que coincidan" />
+        );
       }
       return <ExpenseListCard output={part.output} />;
     }
@@ -319,7 +410,8 @@ export function ChatToolPart({ part, onRespondToApproval }: ChatToolPartProps) {
                 : "default"
           }
           footer={
-            part.state === "approval-requested" && !part.approval.isAutomatic ? (
+            part.state === "approval-requested" &&
+            !part.approval.isAutomatic ? (
               <ConfirmFooter
                 confirmLabel="Registrar"
                 onRespond={(approved) =>
@@ -347,7 +439,9 @@ export function ChatToolPart({ part, onRespondToApproval }: ChatToolPartProps) {
     /* ------------------------------------------------------------- editar */
     case "tool-updateExpense": {
       if (part.state === "input-streaming") {
-        return <ToolStatus icon={PencilLine} label="Preparando el cambio…" pending />;
+        return (
+          <ToolStatus icon={PencilLine} label="Preparando el cambio…" pending />
+        );
       }
       if (part.state === "output-error") {
         return <ToolError message="No se pudo actualizar el gasto." />;
@@ -365,7 +459,8 @@ export function ChatToolPart({ part, onRespondToApproval }: ChatToolPartProps) {
                 : "default"
           }
           footer={
-            part.state === "approval-requested" && !part.approval.isAutomatic ? (
+            part.state === "approval-requested" &&
+            !part.approval.isAutomatic ? (
               <ConfirmFooter
                 confirmLabel="Guardar cambios"
                 onRespond={(approved) =>
@@ -428,7 +523,219 @@ export function ChatToolPart({ part, onRespondToApproval }: ChatToolPartProps) {
           title="Eliminar gasto"
           tone={part.state === "output-denied" ? "muted" : "destructive"}
           footer={
-            part.state === "approval-requested" && !part.approval.isAutomatic ? (
+            part.state === "approval-requested" &&
+            !part.approval.isAutomatic ? (
+              <ConfirmFooter
+                confirmLabel="Eliminar"
+                destructive
+                onRespond={(approved) =>
+                  onRespondToApproval(part.approval.id, approved)
+                }
+              />
+            ) : part.state === "output-denied" ? (
+              <DeniedFooter label="No se eliminó nada." />
+            ) : part.state === "output-available" ? (
+              part.output.ok ? (
+                <DoneFooter label="Eliminado de forma permanente." />
+              ) : (
+                <DeniedFooter label={part.output.error} />
+              )
+            ) : (
+              <PendingFooter label="Eliminando…" />
+            )
+          }
+        >
+          <p className="p-3 text-sm">
+            Se va a eliminar <strong>{part.input.label}</strong> de forma
+            permanente. Esta acción no se puede deshacer.
+          </p>
+        </ActionCard>
+      );
+    }
+
+    /* ----------------------------------------------------------- ingresos */
+    case "tool-listIncomes": {
+      if (part.state === "output-error") {
+        return <ToolError message="No pude buscar los ingresos." />;
+      }
+      if (part.state !== "output-available") {
+        return (
+          <ToolStatus icon={Search} label="Buscando en tus ingresos…" pending />
+        );
+      }
+      if (part.output.incomes.length === 0) {
+        return (
+          <ToolStatus
+            icon={Search}
+            label="No encontré ingresos que coincidan"
+          />
+        );
+      }
+      return <IncomeListCard output={part.output} />;
+    }
+
+    case "tool-createIncome": {
+      if (part.state === "input-streaming") {
+        return (
+          <ToolStatus icon={Banknote} label="Preparando el ingreso…" pending />
+        );
+      }
+      if (part.state === "output-error") {
+        return <ToolError message="No se pudo registrar el ingreso." />;
+      }
+
+      const preview: IncomePreview | null =
+        part.state === "output-available" && part.output.ok
+          ? part.output.income
+          : "input" in part && part.input
+            ? {
+                amount: part.input.amount,
+                iva: part.input.iva,
+                isr: part.input.isr,
+                description: part.input.description,
+                image: part.input.image,
+                date: part.input.date,
+              }
+            : null;
+
+      if (!preview) return null;
+
+      return (
+        <ActionCard
+          icon={Banknote}
+          title="Nuevo ingreso"
+          tone={
+            part.state === "output-available" && part.output.ok
+              ? "success"
+              : part.state === "output-denied"
+                ? "muted"
+                : "default"
+          }
+          footer={
+            part.state === "approval-requested" &&
+            !part.approval.isAutomatic ? (
+              <ConfirmFooter
+                confirmLabel="Registrar"
+                onRespond={(approved) =>
+                  onRespondToApproval(part.approval.id, approved)
+                }
+              />
+            ) : part.state === "output-denied" ? (
+              <DeniedFooter label="No se registró." />
+            ) : part.state === "output-available" ? (
+              part.output.ok ? (
+                <DoneFooter label="Registrado en tus ingresos." />
+              ) : (
+                <DeniedFooter label={part.output.error} />
+              )
+            ) : (
+              <PendingFooter label="Registrando…" />
+            )
+          }
+        >
+          <IncomeSummary income={preview} />
+        </ActionCard>
+      );
+    }
+
+    case "tool-updateIncome": {
+      if (part.state === "input-streaming") {
+        return (
+          <ToolStatus icon={PencilLine} label="Preparando el cambio…" pending />
+        );
+      }
+      if (part.state === "output-error") {
+        return <ToolError message="No se pudo actualizar el ingreso." />;
+      }
+
+      return (
+        <ActionCard
+          icon={PencilLine}
+          title="Editar ingreso"
+          tone={
+            part.state === "output-available" && part.output.ok
+              ? "success"
+              : part.state === "output-denied"
+                ? "muted"
+                : "default"
+          }
+          footer={
+            part.state === "approval-requested" &&
+            !part.approval.isAutomatic ? (
+              <ConfirmFooter
+                confirmLabel="Guardar cambios"
+                onRespond={(approved) =>
+                  onRespondToApproval(part.approval.id, approved)
+                }
+              />
+            ) : part.state === "output-denied" ? (
+              <DeniedFooter label="No se cambió nada." />
+            ) : part.state === "output-available" ? (
+              part.output.ok ? (
+                <DoneFooter label="Ingreso actualizado." />
+              ) : (
+                <DeniedFooter label={part.output.error} />
+              )
+            ) : (
+              <PendingFooter label="Guardando…" />
+            )
+          }
+        >
+          {part.state === "output-available" && part.output.ok ? (
+            <IncomeSummary income={part.output.income} />
+          ) : (
+            <ul className="space-y-1 p-3 text-sm">
+              {part.input.amount !== undefined ? (
+                <ChangeRow label="Cobrado" value={part.input.amount} isAmount />
+              ) : null}
+              {part.input.iva !== undefined ? (
+                <ChangeRow
+                  label="IVA"
+                  value={part.input.iva ?? "(sin IVA)"}
+                  isAmount={part.input.iva !== null}
+                />
+              ) : null}
+              {part.input.isr !== undefined ? (
+                <ChangeRow
+                  label="ISR retenido"
+                  value={part.input.isr ?? "(sin retención)"}
+                  isAmount={part.input.isr !== null}
+                />
+              ) : null}
+              {part.input.date ? (
+                <ChangeRow
+                  label="Fecha"
+                  value={formatExpenseDate(parseToolDate(part.input.date))}
+                />
+              ) : null}
+              {part.input.description !== undefined ? (
+                <ChangeRow
+                  label="Concepto"
+                  value={part.input.description ?? "(sin concepto)"}
+                />
+              ) : null}
+            </ul>
+          )}
+        </ActionCard>
+      );
+    }
+
+    case "tool-deleteIncome": {
+      if (part.state === "input-streaming") {
+        return null;
+      }
+      if (part.state === "output-error") {
+        return <ToolError message="No se pudo eliminar el ingreso." />;
+      }
+
+      return (
+        <ActionCard
+          icon={Trash2}
+          title="Eliminar ingreso"
+          tone={part.state === "output-denied" ? "muted" : "destructive"}
+          footer={
+            part.state === "approval-requested" &&
+            !part.approval.isAutomatic ? (
               <ConfirmFooter
                 confirmLabel="Eliminar"
                 destructive
@@ -460,7 +767,13 @@ export function ChatToolPart({ part, onRespondToApproval }: ChatToolPartProps) {
     /* --------------------------------------------------------- categorías */
     case "tool-createCategory": {
       if (part.state === "input-streaming") {
-        return <ToolStatus icon={FolderPlus} label="Preparando la categoría…" pending />;
+        return (
+          <ToolStatus
+            icon={FolderPlus}
+            label="Preparando la categoría…"
+            pending
+          />
+        );
       }
       if (part.state === "output-error") {
         return <ToolError message="No se pudo crear la categoría." />;
@@ -478,7 +791,8 @@ export function ChatToolPart({ part, onRespondToApproval }: ChatToolPartProps) {
                 : "default"
           }
           footer={
-            part.state === "approval-requested" && !part.approval.isAutomatic ? (
+            part.state === "approval-requested" &&
+            !part.approval.isAutomatic ? (
               <ConfirmFooter
                 confirmLabel="Crear categoría"
                 onRespond={(approved) =>
@@ -555,6 +869,8 @@ function PeriodSummaryCard({
   summary: {
     totalSpent: number;
     expenseCount: number;
+    income: { net: number; iva: number; isr: number; count: number };
+    balance: number;
     byCategory: {
       categoryId: string;
       name: string;
@@ -567,6 +883,7 @@ function PeriodSummaryCard({
   const { formatAmount } = useAppSettings();
   const top = summary.byCategory.slice(0, 5);
   const max = top[0]?.total ?? 0;
+  const hasIncome = summary.income.count > 0;
 
   return (
     <ActionCard icon={PieChart} title="Resumen del periodo">
@@ -576,9 +893,36 @@ function PeriodSummaryCard({
         </p>
         <p className="text-muted-foreground text-xs">
           {summary.expenseCount === 1
-            ? "1 movimiento registrado"
-            : `${summary.expenseCount} movimientos registrados`}
+            ? "1 gasto registrado"
+            : `${summary.expenseCount} gastos registrados`}
         </p>
+
+        {/* El balance sólo aparece si hay algo que balancear: sin ingresos
+            capturados sería el gasto en negativo, que no dice nada. */}
+        {hasIncome ? (
+          <ul className="mt-3 space-y-1 border-t pt-3 text-sm">
+            <ChangeRow
+              label="Cobrado neto"
+              value={summary.income.net}
+              isAmount
+            />
+            {summary.income.iva > 0 ? (
+              <ChangeRow
+                label="IVA trasladado"
+                value={summary.income.iva}
+                isAmount
+              />
+            ) : null}
+            {summary.income.isr > 0 ? (
+              <ChangeRow
+                label="ISR retenido"
+                value={summary.income.isr}
+                isAmount
+              />
+            ) : null}
+            <ChangeRow label="Balance" value={summary.balance} isAmount />
+          </ul>
+        ) : null}
 
         {top.length > 0 ? (
           <ul className="mt-3 space-y-2">
@@ -637,7 +981,9 @@ function ExpenseListCard({
     <ActionCard
       icon={Search}
       title={
-        output.total === 1 ? "1 gasto encontrado" : `${output.total} gastos encontrados`
+        output.total === 1
+          ? "1 gasto encontrado"
+          : `${output.total} gastos encontrados`
       }
       footer={
         output.total > output.expenses.length ? (
@@ -665,6 +1011,63 @@ function ExpenseListCard({
             </div>
             <p className="shrink-0 text-sm font-semibold tabular-nums">
               {formatAmount(expense.amount)}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </ActionCard>
+  );
+}
+
+function IncomeListCard({
+  output,
+}: {
+  output: {
+    total: number;
+    incomes: {
+      id: string;
+      amount: number;
+      iva: number | null;
+      isr: number | null;
+      net: number;
+      description: string | null;
+      date: string;
+    }[];
+  };
+}) {
+  const { formatAmount } = useAppSettings();
+
+  return (
+    <ActionCard
+      icon={Search}
+      title={
+        output.total === 1
+          ? "1 ingreso encontrado"
+          : `${output.total} ingresos encontrados`
+      }
+      footer={
+        output.total > output.incomes.length ? (
+          <p className="text-muted-foreground border-t px-3 py-2 text-xs">
+            Se muestran los primeros {output.incomes.length}.
+          </p>
+        ) : undefined
+      }
+    >
+      <ul className="divide-y">
+        {output.incomes.map((income) => (
+          <li key={income.id} className="px-3 py-2.5">
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="truncate text-sm font-medium">
+                {formatIncomeTitle(income)}
+              </p>
+              <p className="shrink-0 text-sm font-semibold tabular-nums">
+                {formatAmount(income.net)}
+              </p>
+            </div>
+            <p className="text-muted-foreground truncate text-xs">
+              {formatExpenseDate(parseToolDate(income.date))}
+              {income.iva !== null ? ` · IVA ${formatAmount(income.iva)}` : ""}
+              {income.isr !== null ? ` · ISR ${formatAmount(income.isr)}` : ""}
             </p>
           </li>
         ))}

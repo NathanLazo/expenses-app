@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { periodInput, resolvePeriod } from "~/server/api/period";
+import { deleteReceipt } from "~/server/blob";
 import { sumIncomeTotals } from "~/lib/income";
 
 /**
@@ -11,6 +12,27 @@ import { sumIncomeTotals } from "~/lib/income";
  */
 const taxInput = z.number().nonnegative().nullish();
 
+/**
+ * Un ISR mayor a lo facturado dejaría un neto negativo, que no describe ningún
+ * cobro real. La regla vive aquí y no sólo en el formulario porque el chat
+ * llama a estos mismos procedimientos y no debe poder saltársela.
+ */
+function retentionExceedsInvoice(
+  amount: number,
+  iva: number | null,
+  isr: number | null,
+) {
+  if (isr === null) return false;
+  return isr > amount + (iva ?? 0);
+}
+
+const RETENTION_ERROR = {
+  result: null,
+  status: 400,
+  error: "Retention exceeds invoiced total",
+  message: "La retención no puede ser mayor al total facturado",
+} as const;
+
 export const useIncomes = createTRPCRouter({
   create: publicProcedure
     .input(
@@ -19,17 +41,29 @@ export const useIncomes = createTRPCRouter({
         iva: taxInput,
         isr: taxInput,
         description: z.string().nullish(),
+        image: z.string().url().nullable().optional(),
         date: z.date(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
       try {
+        if (
+          retentionExceedsInvoice(
+            input.amount,
+            input.iva ?? null,
+            input.isr ?? null,
+          )
+        ) {
+          return RETENTION_ERROR;
+        }
+
         const income = await ctx.db.income.create({
           data: {
             amount: input.amount,
             iva: input.iva ?? null,
             isr: input.isr ?? null,
             description: input.description?.trim() ?? null,
+            image: input.image ?? null,
             date: input.date,
           },
         });
@@ -87,6 +121,7 @@ export const useIncomes = createTRPCRouter({
         iva: taxInput,
         isr: taxInput,
         description: z.string().nullish(),
+        image: z.string().url().nullable().optional(),
         date: z.date().optional(),
       }),
     )
@@ -101,10 +136,42 @@ export const useIncomes = createTRPCRouter({
             ? rest
             : { ...rest, description: description?.trim() ?? null };
 
+        // La edición es parcial, así que la regla se valida sobre el resultado
+        // final: lo que llega en el input mezclado con lo que ya estaba.
+        const current = await ctx.db.income.findUnique({
+          where: { id },
+          select: { amount: true, iva: true, isr: true, image: true },
+        });
+
+        if (!current) {
+          return {
+            result: null,
+            status: 404,
+            error: "Income not found",
+            message: "Income not found",
+          };
+        }
+
+        if (
+          retentionExceedsInvoice(
+            input.amount ?? current.amount,
+            input.iva === undefined ? current.iva : (input.iva ?? null),
+            input.isr === undefined ? current.isr : (input.isr ?? null),
+          )
+        ) {
+          return RETENTION_ERROR;
+        }
+
         const income = await ctx.db.income.update({
           where: { id },
           data,
         });
+
+        // Si la factura cambió hay que soltar la anterior, si no queda huérfana
+        // en el store para siempre.
+        if (current.image && current.image !== income.image) {
+          await deleteReceipt(current.image);
+        }
 
         return {
           result: income,
@@ -130,6 +197,8 @@ export const useIncomes = createTRPCRouter({
         const income = await ctx.db.income.delete({
           where: { id: input.id },
         });
+
+        await deleteReceipt(income.image);
 
         return {
           result: income,
