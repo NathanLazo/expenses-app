@@ -26,7 +26,7 @@ export const maxDuration = 60;
  * falta instalar el paquete del proveedor ni manejar su API key: en Vercel basta
  * con el OIDC del proyecto y en local con `AI_GATEWAY_API_KEY`.
  */
-const MODEL = "anthropic/claude-sonnet-5";
+const MODEL = "spacexai/grok-4.7";
 
 function toDateInput(date: Date) {
   const pad = (value: number) => String(value).padStart(2, "0");
